@@ -54,6 +54,7 @@
 
 <div>
   <label>Fecha:<input type="text" id="fecha"></label>
+  
   <label>Empresa Contratista:<input type="text" id="empresa"></label>
   <label>Técnico Interviniente:<input type="text" id="tecnico"></label>
 </div>
@@ -69,6 +70,7 @@
 <hr>
 
 <h3>Agregar Intervención</h3>
+<label>Código de Sitio:<input type="text" id="codigo"></label>
 <label>Coordenadas de Intervención:<input type="text" id="coord"></label>
 <label>Tarea:<textarea id="tarea"></textarea></label>
 <label>Observación:<textarea id="obs"></textarea></label>
@@ -77,11 +79,22 @@
 <h3>Tramos Registrados</h3>
 <table>
   <thead>
-    <tr><th>#</th><th>Lat</th><th>Lon</th><th>Tarea</th><th>Observación</th><th>Distancia (km)</th></tr>
+    <thead>
+  <tr>
+    <th>#</th>
+    <th>Código Sitio</th>
+    <th>Lat</th>
+    <th>Lon</th>
+    <th>Tarea</th>
+    <th>Observación</th>
+    <th>Distancia (km)</th>
+  </tr>
+</thead>
+
   </thead>
   <tbody id="tramosTable"></tbody>
   <tfoot>
-    <tr><th colspan="5">Total Recorrido</th><th id="totalKm">0 km</th></tr>
+    <tr><th colspan="6">Total Recorrido</th><th id="totalKm">0 km</th></tr>
   </tfoot>
 </table>
 
@@ -105,14 +118,16 @@
   let layer = L.layerGroup().addTo(map);
 
   function agregarTramo() {
-    const coordStr = document.getElementById('coord').value.trim();
-    const tarea = document.getElementById('tarea').value.trim();
-    const obs = document.getElementById('obs').value.trim();
-    if (!coordStr.includes(',')) return alert("Formato coordenadas inválido");
-    const [lat, lon] = coordStr.split(',').map(Number);
-    if (isNaN(lat) || isNaN(lon)) return alert("Coordenadas inválidas");
+    const codigo = document.getElementById('codigo').value.trim();
+const coordStr = document.getElementById('coord').value.trim();
+const tarea = document.getElementById('tarea').value.trim();
+const obs = document.getElementById('obs').value.trim();
 
-    puntos.push({ lat, lon, tarea, obs, km: 0 });
+if (!coordStr.includes(',')) return alert("Formato coordenadas inválido");
+const [lat, lon] = coordStr.split(',').map(Number);
+if (isNaN(lat) || isNaN(lon)) return alert("Coordenadas inválidas");
+
+puntos.push({ codigo, lat, lon, tarea, obs, km: 0 });
     calcularRutaReal();
     document.getElementById('coord').value = '';
     document.getElementById('tarea').value = '';
@@ -141,9 +156,14 @@
           p.km = distKm;
           total += distKm;
           html += `<tr>
-            <td>${i+1}</td><td>${p.lat.toFixed(5)}</td><td>${p.lon.toFixed(5)}</td>
-            <td>${p.tarea}</td><td>${p.obs}</td><td>${distKm.toFixed(2)} km</td>
-          </tr>`;
+  <td>${i+1}</td>
+  <td>${p.codigo}</td>
+  <td>${p.lat.toFixed(5)}</td>
+  <td>${p.lon.toFixed(5)}</td>
+  <td>${p.tarea}</td>
+  <td>${p.obs}</td>
+  <td>${distKm.toFixed(2)} km</td>
+</tr>`;
 
           const coords = data.features[0].geometry.coordinates;
           const tramo = coords.map(c => [c[1], c[0]]);
@@ -157,7 +177,11 @@
           });
           L.marker([p.lat, p.lon], { icon: myIcon })
             .addTo(layer)
-            .bindPopup(`<b>Tramo ${i+1}</b><br>${p.tarea}<br>${p.obs}<br>${distKm.toFixed(2)} km`);
+            ..bindPopup(`<b>Tramo ${i+1}</b><br>
+  Código: ${p.codigo}<br>
+  ${p.tarea}<br>
+  ${p.obs}<br>
+  ${distKm.toFixed(2)} km`);
 
           prev.lat = p.lat;
           prev.lon = p.lon;
