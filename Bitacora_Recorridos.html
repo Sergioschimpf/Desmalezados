@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Bitácora</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background:#EDF1F2; margin:0; padding:20px; }
+    #membrete { background:#fff; border:2px solid #1A73E8; padding:20px; text-align:center; margin-bottom:20px; font-weight:bold; }
+    h1 { text-align:center; color:#1A73E8; margin-bottom:10px; }
+    label { display:block; margin-top:10px; font-weight:bold; }
+    input, button, textarea {
+      width:100%; padding:10px; margin-top:5px; border:1px solid #ccc; border-radius:5px;
+    }
+    #map { height:400px; margin-top:20px; width:100%; }
+    table { width:100%; border-collapse:collapse; margin-top:20px; background:#fff; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:center; }
+    th { background:#1A73E8; color:#fff; }
+    tr:nth-child(even) { background:#f9f9f9; }
+    .circle-pin {
+      border-radius:50%; width:24px; height:24px; line-height:24px;
+      text-align:center; font-weight:bold; color:#fff; font-size:12px;
+    }
+    .nav-buttons {
+      margin-top:20px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+    }
+    button {
+      background:#1A73E8; color:#fff; border:none; cursor:pointer;
+      padding:10px 20px; border-radius:5px; font-weight:bold;
+    }
+    button:hover { background:#1558b0; }
+    @media (max-width: 600px) {
+      #map { height:300px; }
+      table { font-size:12px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="membrete">AQUÍ TU LOGO O MEMBRETE</div>
+
+<h1>Bitácora</h1>
+
+<div>
+  <label>Fecha:<input type="text" id="fecha"></label>
+  <label>Empresa Contratista:<input type="text" id="empresa"></label>
+  <label>Técnico Interviniente:<input type="text" id="tecnico"></label>
+</div>
+
+<hr>
+
+<div>
+  <label>Coordenadas de Inicio de Jornada (Lat, Lon):
+    <input type="text" id="inicio" placeholder="-23.7616619, -65.4764927">
+  </label>
+</div>
+
+<hr>
+
+<h3>Agregar Intervención</h3>
+<label>Coordenadas de Intervención:<input type="text" id="coord"></label>
+<label>Tarea:<textarea id="tarea"></textarea></label>
+<label>Observación:<textarea id="obs"></textarea></label>
+<button onclick="agregarTramo()">Agregar Tramo</button>
+
+<h3>Tramos Registrados</h3>
+<table>
+  <thead>
+    <tr><th>#</th><th>Lat</th><th>Lon</th><th>Tarea</th><th>Observación</th><th>Distancia (km)</th></tr>
+  </thead>
+  <tbody id="tramosTable"></tbody>
+  <tfoot>
+    <tr><th colspan="5">Total Recorrido</th><th id="totalKm">0 km</th></tr>
+  </tfoot>
+</table>
+
+<div id="map"></div>
+<button onclick="exportarPDF()">📄 Exportar Bitácora PDF</button>
+
+<div class="nav-buttons">
+  <button onclick="location.href='Index.html'">🏠 Inicio</button>
+  <button onclick="location.href='Relevamiento.html'">🔙 Volver</button>
+</div>
+
+<script>
+  flatpickr("#fecha", { dateFormat: "Y-m-d" });
+
+  let puntos = [];
+  let totalKm = 0;
+  const colores = ['#e74c3c','#3498db','#27ae60','#f39c12','#8e44ad','#16a085','#d35400'];
+  const apiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0=';
+  let map = L.map('map').setView([-23.76, -65.47], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  let layer = L.layerGroup().addTo(map);
+
+  function agregarTramo() {
+    const coordStr = document.getElementById('coord').value.trim();
+    const tarea = document.getElementById('tarea').value.trim();
+    const obs = document.getElementById('obs').value.trim();
+    if (!coordStr.includes(',')) return alert("Formato coordenadas inválido");
+    const [lat, lon] = coordStr.split(',').map(Number);
+    if (isNaN(lat) || isNaN(lon)) return alert("Coordenadas inválidas");
+
+    puntos.push({ lat, lon, tarea, obs, km: 0 });
+    calcularRutaReal();
+    document.getElementById('coord').value = '';
+    document.getElementById('tarea').value = '';
+    document.getElementById('obs').value = '';
+  }
+
+  function calcularRutaReal() {
+    const inicio = document.getElementById('inicio').value.trim();
+    if (!inicio.includes(',')) return;
+    const inicioCoords = inicio.split(',').map(Number);
+
+    let total = 0;
+    let html = '';
+    let prev = { lat: inicioCoords[0], lon: inicioCoords[1] };
+
+    layer.clearLayers();
+    L.marker([prev.lat, prev.lon], { icon: L.divIcon({ className:'circle-pin', html:'<div style="background:#333;">0</div>' }) }).addTo(layer).bindPopup("Inicio Jornada");
+
+    const latlngs = [[prev.lat, prev.lon]];
+
+    const promises = puntos.map((p, i) => {
+      return fetch(`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${prev.lon},${prev.lat}&end=${p.lon},${p.lat}`)
+        .then(res => res.json())
+        .then(data => {
+          const distKm = data.features[0].properties.summary.distance / 1000;
+          p.km = distKm;
+          total += distKm;
+          html += `<tr>
+            <td>${i+1}</td><td>${p.lat.toFixed(5)}</td><td>${p.lon.toFixed(5)}</td>
+            <td>${p.tarea}</td><td>${p.obs}</td><td>${distKm.toFixed(2)} km</td>
+          </tr>`;
+
+          const coords = data.features[0].geometry.coordinates;
+          const tramo = coords.map(c => [c[1], c[0]]);
+          latlngs.push(...tramo.slice(1));
+          const color = colores[i % colores.length];
+          L.polyline(tramo, { color: color }).addTo(layer);
+
+          const myIcon = L.divIcon({
+            html: `<div class="circle-pin" style="background:${color}; border:2px solid #333;">${i+1}</div>`,
+            className: ''
+          });
+          L.marker([p.lat, p.lon], { icon: myIcon })
+            .addTo(layer)
+            .bindPopup(`<b>Tramo ${i+1}</b><br>${p.tarea}<br>${p.obs}<br>${distKm.toFixed(2)} km`);
+
+          prev.lat = p.lat;
+          prev.lon = p.lon;
+        });
+    });
+
+    Promise.all(promises).then(() => {
+      document.getElementById('tramosTable').innerHTML = html;
+      document.getElementById('totalKm').textContent = total.toFixed(2) + " km";
+      totalKm = total;
+      map.fitBounds(L.polyline(latlngs).getBounds());
+    });
+  }
+
+  function exportarPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.text("BITÁCORA", 10, 10);
+    doc.text("Fecha: " + document.getElementById('fecha').value, 10, 20);
+    doc.text("Empresa: " + document.getElementById('empresa').value, 10, 30);
+    doc.text("Técnico: " + document.getElementById('tecnico').value, 10, 40);
+    doc.text("Total km: " + totalKm.toFixed(2) + " km", 10, 50);
+
+    const inicio = document.getElementById('inicio').value.trim();
+    if (!inicio.includes(',')) return alert("Coordenadas de inicio inválidas");
+    const inicioCoords = inicio.split(',').map(Number);
+    let coords = [`${inicioCoords[1]},${inicioCoords[0]}`];
+    puntos.forEach(p => {
+      coords.push(`${p.lon},${p.lat}`);
+    });
+    const coordinates = coords.join('|');
+    const staticMapUrl = `https://api.openrouteservice.org/mapsurfer?api_key=${apiKey}&layers=standard&profile=driving-car&format=png&width=800&height=400&coordinates=${coordinates}`;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      doc.addImage(img, 'PNG', 10, 60, 180, 80);
+      doc.save("Bitacora_Membrete_Botones.pdf");
+    };
+    img.onerror = () => alert("No se pudo cargar el StaticMap");
+    img.src = staticMapUrl;
+  }
+</script>
+
+</body>
+</html>
