@@ -177,7 +177,7 @@ puntos.push({ codigo, lat, lon, tarea, obs, km: 0 });
           });
           L.marker([p.lat, p.lon], { icon: myIcon })
             .addTo(layer)
-            ..bindPopup(`<b>Tramo ${i+1}</b><br>
+            .bindPopup(`<b>Tramo ${i+1}</b><br>
   Código: ${p.codigo}<br>
   ${p.tarea}<br>
   ${p.obs}<br>
