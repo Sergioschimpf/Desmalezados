@@ -158,6 +158,49 @@
     });
   }
 
-  function exportarPDF() { alert("Función PDF lista, igual que antes."); }
+  function exportarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const fecha = document.getElementById('fecha').value;
+  const empresa = document.getElementById('empresa').value;
+  const tecnico = document.getElementById('tecnico').value;
+
+  doc.setFontSize(16);
+  doc.text("BITÁCORA DE RECORRIDOS", 10, 15);
+  doc.setFontSize(10);
+  doc.text(`Fecha: ${fecha}`, 10, 25);
+  doc.text(`Empresa: ${empresa}`, 10, 30);
+  doc.text(`Técnico: ${tecnico}`, 10, 35);
+
+  // Tabla de tramos
+  let startY = 45;
+  puntos.forEach((p, i) => {
+    doc.text(`Tramo ${i+1}: ${p.codigo} | Lat: ${p.lat.toFixed(5)}, Lon: ${p.lon.toFixed(5)} | Tarea: ${p.tarea} | Obs: ${p.obs} | ${p.km.toFixed(2)} km`, 10, startY);
+    startY += 5;
+  });
+
+  doc.text(`Total recorrido: ${totalKm.toFixed(2)} km`, 10, startY + 5);
+
+  // Static map
+  const inicio = document.getElementById('inicio').value.trim();
+  if (!inicio.includes(',')) return alert("Coordenadas de inicio inválidas");
+  const inicioCoords = inicio.split(',').map(Number);
+  let coords = [`${inicioCoords[1]},${inicioCoords[0]}`];
+  puntos.forEach(p => {
+    coords.push(`${p.lon},${p.lat}`);
+  });
+  const coordinates = coords.join('|');
+  const staticMapUrl = `https://api.openrouteservice.org/mapsurfer?api_key=${apiKey}&layers=standard&profile=driving-car&format=png&width=800&height=400&coordinates=${coordinates}`;
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    doc.addImage(img, 'PNG', 10, startY + 15, 180, 90);
+    doc.save("Bitacora.pdf");
+  };
+  img.onerror = () => alert("No se pudo cargar el StaticMap");
+  img.src = staticMapUrl;
+}
+
 </script>
 </body></html>
