@@ -96,6 +96,7 @@
 
   const apiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0=';
   let puntos = [];
+  let totalKm = 0;
   const colores = ['#e74c3c','#3498db','#27ae60','#f39c12','#8e44ad','#16a085','#d35400'];
   let map = L.map('map').setView([-23.76, -65.47], 6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -152,6 +153,7 @@
         });
     });
     Promise.all(promises).then(() => {
+      totalKm = total;
       document.getElementById('tramosTable').innerHTML = html;
       document.getElementById('totalKm').textContent = total.toFixed(2) + " km";
       map.fitBounds(L.polyline(latlngs).getBounds());
@@ -159,48 +161,55 @@
   }
 
   function exportarPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const fecha = document.getElementById('fecha').value;
-  const empresa = document.getElementById('empresa').value;
-  const tecnico = document.getElementById('tecnico').value;
+    console.log("Iniciando exportarPDF...");
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const fecha = document.getElementById('fecha').value;
+    const empresa = document.getElementById('empresa').value;
+    const tecnico = document.getElementById('tecnico').value;
 
-  doc.setFontSize(16);
-  doc.text("BITÁCORA DE RECORRIDOS", 10, 15);
-  doc.setFontSize(10);
-  doc.text(`Fecha: ${fecha}`, 10, 25);
-  doc.text(`Empresa: ${empresa}`, 10, 30);
-  doc.text(`Técnico: ${tecnico}`, 10, 35);
+    doc.setFontSize(16);
+    doc.text("BITÁCORA DE RECORRIDOS", 10, 15);
+    doc.setFontSize(10);
+    doc.text(`Fecha: ${fecha}`, 10, 25);
+    doc.text(`Empresa: ${empresa}`, 10, 30);
+    doc.text(`Técnico: ${tecnico}`, 10, 35);
 
-  // Tabla de tramos
-  let startY = 45;
-  puntos.forEach((p, i) => {
-    doc.text(`Tramo ${i+1}: ${p.codigo} | Lat: ${p.lat.toFixed(5)}, Lon: ${p.lon.toFixed(5)} | Tarea: ${p.tarea} | Obs: ${p.obs} | ${p.km.toFixed(2)} km`, 10, startY);
-    startY += 5;
-  });
+    let startY = 45;
+    puntos.forEach((p, i) => {
+      doc.text(`Tramo ${i+1}: ${p.codigo} | Lat: ${p.lat.toFixed(5)}, Lon: ${p.lon.toFixed(5)} | Tarea: ${p.tarea} | Obs: ${p.obs} | ${p.km.toFixed(2)} km`, 10, startY);
+      startY += 5;
+    });
 
-  doc.text(`Total recorrido: ${totalKm.toFixed(2)} km`, 10, startY + 5);
+    doc.text(`Total recorrido: ${totalKm.toFixed(2)} km`, 10, startY + 5);
 
-  // Static map
-  const inicio = document.getElementById('inicio').value.trim();
-  if (!inicio.includes(',')) return alert("Coordenadas de inicio inválidas");
-  const inicioCoords = inicio.split(',').map(Number);
-  let coords = [`${inicioCoords[1]},${inicioCoords[0]}`];
-  puntos.forEach(p => {
-    coords.push(`${p.lon},${p.lat}`);
-  });
-  const coordinates = coords.join('|');
-  const staticMapUrl = `https://api.openrouteservice.org/mapsurfer?api_key=${apiKey}&layers=standard&profile=driving-car&format=png&width=800&height=400&coordinates=${coordinates}`;
+    const inicio = document.getElementById('inicio').value.trim();
+    if (!inicio.includes(',')) {
+      alert("Coordenadas de inicio inválidas");
+      return;
+    }
 
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => {
-    doc.addImage(img, 'PNG', 10, startY + 15, 180, 90);
-    doc.save("Bitacora.pdf");
-  };
-  img.onerror = () => alert("No se pudo cargar el StaticMap");
-  img.src = staticMapUrl;
-}
+    const inicioCoords = inicio.split(',').map(Number);
+    let coords = [`${inicioCoords[1]},${inicioCoords[0]}`];
+    puntos.forEach(p => {
+      coords.push(`${p.lon},${p.lat}`);
+    });
+    const coordinates = coords.join('|');
+    const staticMapUrl = `https://api.openrouteservice.org/mapsurfer?api_key=${apiKey}&layers=standard&profile=driving-car&format=png&width=800&height=400&coordinates=${coordinates}`;
 
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      doc.addImage(img, 'PNG', 10, startY + 15, 180, 90);
+      doc.save("Bitacora.pdf");
+    };
+    img.onerror = () => {
+      console.error("No se pudo cargar el StaticMap");
+      alert("No se pudo cargar el StaticMap. Se generará sin mapa.");
+      doc.save("Bitacora_sin_mapa.pdf");
+    };
+    img.src = staticMapUrl;
+  }
 </script>
-</body></html>
+</body>
+</html>
