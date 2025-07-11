@@ -2,214 +2,172 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Bitácora de recorridos</title>
+  <title>Bitácora de recorridos con rutas reales</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background:#EDF1F2; margin:0; padding:20px; }
-    h1 { text-align:center; color:#1A73E8; margin-bottom:10px; }
-    label { display:block; margin-top:10px; font-weight:bold; }
-    input, button, textarea {
-      width:100%; padding:10px; margin-top:5px; border:1px solid #ccc; border-radius:5px;
+    body { font-family: 'Segoe UI', sans-serif; background: #EDF1F2; margin: 0; padding: 20px; }
+    h1 { text-align: center; color: #1A73E8; }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; font-weight: bold; margin-bottom: 4px; }
+    .field input, .field textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    #map { height: 400px; margin: 10px 0; }
+    #mapPreview img { max-width: 100%; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0; background: #fff; }
+    th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+    th { background: #1A73E8; color: #fff; }
+    .no-print { display: inline-block; }
+    @media print {
+      button, .no-print { display: none !important; }
+      #map { height: 400px !important; }
     }
-    #map { height:400px; margin-top:20px; width:100%; }
-    table { width:100%; border-collapse:collapse; margin-top:20px; background:#fff; }
-    th, td { border:1px solid #ddd; padding:8px; text-align:center; }
-    th { background:#1A73E8; color:#fff; }
-    tr:nth-child(even) { background:#f9f9f9; }
-    .circle-pin {
-      border-radius:50%; width:24px; height:24px; line-height:24px;
-      text-align:center; font-weight:bold; color:#fff; font-size:12px;
-    }
-    .nav-buttons {
-      margin-top:20px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-    }
-    button {
-      background:#1A73E8; color:#fff; border:none; cursor:pointer;
-      padding:10px 20px; border-radius:5px; font-weight:bold;
-    }
-    button:hover { background:#1558b0; }
   </style>
 </head>
 <body>
+  <div id="bitacoraContent">
+    <h1>Bitácora de recorridos</h1>
+    <div class="field">
+      <label for="fecha">Fecha</label>
+      <input type="text" id="fecha" placeholder="YYYY-MM-DD">
+    </div>
+    <div class="field">
+      <label for="empresa">Empresa Contratista</label>
+      <input type="text" id="empresa">
+    </div>
+    <div class="field">
+      <label for="tecnico">Técnico Interviniente</label>
+      <input type="text" id="tecnico">
+    </div>
+    <div class="field">
+      <label for="inicio">Coordenadas Inicio (Lat, Lon)</label>
+      <input type="text" id="inicio" placeholder="-23.76166, -65.47649">
+    </div>
 
-<h1>Bitácora</h1>
+    <h2>Intervenciones</h2>
+    <div class="field">
+      <label for="codigo">Código Sitio</label>
+      <input type="text" id="codigo">
+    </div>
+    <div class="field">
+      <label for="coord">Coordenadas Intervención (Lat, Lon)</label>
+      <input type="text" id="coord">
+    </div>
+    <div class="field">
+      <label for="tarea">Tarea</label>
+      <textarea id="tarea"></textarea>
+    </div>
+    <div class="field">
+      <label for="obs">Observación</label>
+      <textarea id="obs"></textarea>
+    </div>
+    <button class="no-print" type="button" onclick="addIntervention()">Agregar Intervención</button>
 
-<div>
-  <label>Fecha:<input type="text" id="fecha"></label>
-  <label>Empresa Contratista:<input type="text" id="empresa"></label>
-  <label>Técnico Interviniente:<input type="text" id="tecnico"></label>
-</div>
+    <div id="map"></div>
 
-<hr>
+    <h2>Resumen de tramos</h2>
+    <table>
+      <thead>
+        <tr><th>#</th><th>Código</th><th>Lat</th><th>Lon</th><th>Tarea</th><th>Obs</th><th>Dist (km)</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+      <tfoot>
+        <tr><td colspan="6">Total recorrido</td><td id="total">0.00</td></tr>
+      </tfoot>
+    </table>
 
-<div>
-  <label>Coordenadas de Inicio de Jornada (Lat, Lon):
-    <input type="text" id="inicio" placeholder="-23.7616619, -65.4764927">
-  </label>
-</div>
+    <div class="field no-print">
+      <label for="mapFile">Adjuntar imagen del mapa</label>
+      <input type="file" id="mapFile" accept="image/*">
+      <div id="mapPreview"></div>
+    </div>
+  </div>
 
-<hr>
+  <button class="no-print" type="button" onclick="generatePDF()">📄 Generar PDF</button>
 
-<h3>Agregar Intervención</h3>
-<label>Código de Sitio:<input type="text" id="codigo"></label>
-<label>Coordenadas de Intervención:<input type="text" id="coord"></label>
-<label>Tarea:<textarea id="tarea"></textarea></label>
-<label>Observación:<textarea id="obs"></textarea></label>
-<button onclick="agregarTramo()">Agregar Tramo</button>
-<button onclick="borrarUltimoTramo()">Borrar Último Tramo</button>
-<button onclick="calcularRutaEncadenada()">Reacomodar Ruta</button>
+  <script>
+    flatpickr('#fecha', { dateFormat: 'Y-m-d' });
 
-<h3>Tramos Registrados</h3>
-<table>
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>Código Sitio</th>
-      <th>Lat</th>
-      <th>Lon</th>
-      <th>Tarea</th>
-      <th>Observación</th>
-      <th>Distancia (km)</th>
-    </tr>
-  </thead>
-  <tbody id="tramosTable"></tbody>
-  <tfoot>
-    <tr><th colspan="6">Total Recorrido</th><th id="totalKm">0 km</th></tr>
-  </tfoot>
-</table>
+    const map = L.map('map').setView([-23.76166, -65.47649], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-<div id="map"></div>
-<button onclick="exportarPDF()">📄 Exportar Bitácora PDF</button>
+    let interventions = [];
+    const colors = ['#e74c3c', '#3498db', '#27ae60', '#f39c12', '#8e44ad'];
+    const apiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0='; // <-- PON TU API KEY AQUÍ
 
-<div class="nav-buttons">
-  <button onclick="location.href='index.html'">🏠 Inicio</button>
-  <button onclick="location.href='Relevamiento.html'">🔙 Volver</button>
-</div>
-
-<script>
-  flatpickr("#fecha", { dateFormat: "Y-m-d" });
-
-  const apiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0=';
-  let puntos = [];
-  let totalKm = 0;
-  const colores = ['#e74c3c','#3498db','#27ae60','#f39c12','#8e44ad','#16a085','#d35400'];
-  let map = L.map('map').setView([-23.76, -65.47], 6);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-  let layer = L.layerGroup().addTo(map);
-
-  function agregarTramo() {
-    const codigo = document.getElementById('codigo').value.trim();
-    const coordStr = document.getElementById('coord').value.trim();
-    const tarea = document.getElementById('tarea').value.trim();
-    const obs = document.getElementById('obs').value.trim();
-    if (!coordStr.includes(',')) return alert("Formato coordenadas inválido");
-    const [lat, lon] = coordStr.split(',').map(Number);
-    if (isNaN(lat) || isNaN(lon)) return alert("Coordenadas inválidas");
-    puntos.push({ codigo, lat, lon, tarea, obs, km: 0 });
-    calcularRutaEncadenada();
-    document.getElementById('coord').value = '';
-    document.getElementById('tarea').value = '';
-    document.getElementById('obs').value = '';
-  }
-
-  function borrarUltimoTramo() {
-    if (puntos.length > 0) {
-      puntos.pop();
-      calcularRutaEncadenada();
-    }
-  }
-
-  function calcularRutaEncadenada() {
-    const inicio = document.getElementById('inicio').value.trim();
-    if (!inicio.includes(',')) return alert("Indique coordenadas de inicio");
-    const inicioCoords = inicio.split(',').map(Number);
-    let prev = { lat: inicioCoords[0], lon: inicioCoords[1] };
-    let html = ''; let total = 0;
-    layer.clearLayers();
-    L.marker([prev.lat, prev.lon], {
-      icon: L.divIcon({ html: `<div class="circle-pin" style="background:#333;">0</div>`, className: '' })
-    }).addTo(layer).bindPopup("Inicio Jornada");
-    const latlngs = [[prev.lat, prev.lon]];
-    const promises = puntos.map((p, i) => {
-      return fetch(`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${prev.lon},${prev.lat}&end=${p.lon},${p.lat}`)
-        .then(res => res.json()).then(data => {
-          const distKm = data.features[0].properties.summary.distance / 1000;
-          p.km = distKm; total += distKm;
-          html += `<tr><td>${i+1}</td><td>${p.codigo}</td><td>${p.lat.toFixed(5)}</td><td>${p.lon.toFixed(5)}</td><td>${p.tarea}</td><td>${p.obs}</td><td>${distKm.toFixed(2)} km</td></tr>`;
-          const coords = data.features[0].geometry.coordinates;
-          const tramo = coords.map(c => [c[1], c[0]]);
-          latlngs.push(...tramo.slice(1));
-          const color = colores[i % colores.length];
-          L.polyline(tramo, { color }).addTo(layer);
-          const myIcon = L.divIcon({ html: `<div class="circle-pin" style="background:${color}; border:2px solid #333;">${i+1}</div>`, className: '' });
-          L.marker([p.lat, p.lon], { icon: myIcon }).addTo(layer)
-            .bindPopup(`<b>Tramo ${i+1}</b><br>Código: ${p.codigo}<br>${p.tarea}<br>${p.obs}<br>${distKm.toFixed(2)} km`);
-          prev.lat = p.lat; prev.lon = p.lon;
-        });
-    });
-    Promise.all(promises).then(() => {
-      totalKm = total;
-      document.getElementById('tramosTable').innerHTML = html;
-      document.getElementById('totalKm').textContent = total.toFixed(2) + " km";
-      map.fitBounds(L.polyline(latlngs).getBounds());
-    });
-  }
-
-  function exportarPDF() {
-    console.log("Iniciando exportarPDF...");
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const fecha = document.getElementById('fecha').value;
-    const empresa = document.getElementById('empresa').value;
-    const tecnico = document.getElementById('tecnico').value;
-
-    doc.setFontSize(16);
-    doc.text("BITÁCORA DE RECORRIDOS", 10, 15);
-    doc.setFontSize(10);
-    doc.text(`Fecha: ${fecha}`, 10, 25);
-    doc.text(`Empresa: ${empresa}`, 10, 30);
-    doc.text(`Técnico: ${tecnico}`, 10, 35);
-
-    let startY = 45;
-    puntos.forEach((p, i) => {
-      doc.text(`Tramo ${i+1}: ${p.codigo} | Lat: ${p.lat.toFixed(5)}, Lon: ${p.lon.toFixed(5)} | Tarea: ${p.tarea} | Obs: ${p.obs} | ${p.km.toFixed(2)} km`, 10, startY);
-      startY += 5;
-    });
-
-    doc.text(`Total recorrido: ${totalKm.toFixed(2)} km`, 10, startY + 5);
-
-    const inicio = document.getElementById('inicio').value.trim();
-    if (!inicio.includes(',')) {
-      alert("Coordenadas de inicio inválidas");
-      return;
+    function addIntervention() {
+      const code = document.getElementById('codigo').value.trim();
+      const coordStr = document.getElementById('coord').value.trim();
+      const task = document.getElementById('tarea').value.trim();
+      const obs = document.getElementById('obs').value.trim();
+      if (!code || !coordStr.includes(',')) return alert('Complete código y coordenadas correctamente');
+      const [lat, lon] = coordStr.split(',').map(Number);
+      if (isNaN(lat) || isNaN(lon)) return alert('Coordenadas inválidas');
+      interventions.push({ code, lat, lon, task, obs });
+      updateMap();
+      ['codigo','coord','tarea','obs'].forEach(id => document.getElementById(id).value = '');
     }
 
-    const inicioCoords = inicio.split(',').map(Number);
-    let coords = [`${inicioCoords[1]},${inicioCoords[0]}`];
-    puntos.forEach(p => {
-      coords.push(`${p.lon},${p.lat}`);
-    });
-    const coordinates = coords.join('|');
-    const staticMapUrl = `https://api.openrouteservice.org/mapsurfer?api_key=${apiKey}&layers=standard&profile=driving-car&format=png&width=800&height=400&coordinates=${coordinates}`;
+    async function getRealRoute(prev, curr) {
+      const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${prev[1]},${prev[0]}&end=${curr[1]},${curr[0]}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      const distKm = data.features[0].properties.summary.distance / 1000;
+      return { coords, distKm };
+    }
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      doc.addImage(img, 'PNG', 10, startY + 15, 180, 90);
-      doc.save("Bitacora.pdf");
-    };
-    img.onerror = () => {
-      console.error("No se pudo cargar el StaticMap");
-      alert("No se pudo cargar el StaticMap. Se generará sin mapa.");
-      doc.save("Bitacora_sin_mapa.pdf");
-    };
-    img.src = staticMapUrl;
-  }
-</script>
+    async function updateMap() {
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker || layer instanceof L.Polyline) map.removeLayer(layer);
+      });
+      const startStr = document.getElementById('inicio').value.trim();
+      if (!startStr.includes(',')) return;
+      let [lat0, lon0] = startStr.split(',').map(Number);
+      const start = [lat0, lon0];
+
+      L.marker(start, {icon: L.divIcon({html: '<div style="background:#333;color:#fff;border-radius:50%;width:24px;height:24px;line-height:24px;text-align:center;">0</div>'})}).addTo(map);
+      let prev = start, total=0, html='';
+
+      for (let i = 0; i < interventions.length; i++) {
+        const int = interventions[i];
+        const curr = [int.lat, int.lon];
+        const col = colors[i%colors.length];
+        const { coords, distKm } = await getRealRoute(prev, curr);
+        L.polyline(coords, {color: col}).addTo(map);
+        L.marker(curr, {icon: L.divIcon({html:`<div style="background:${col};color:#fff;border-radius:50%;width:24px;height:24px;line-height:24px;text-align:center;">${i+1}</div>`})}).addTo(map);
+        html+=`<tr><td>${i+1}</td><td>${int.code}</td><td>${int.lat.toFixed(5)}</td><td>${int.lon.toFixed(5)}</td><td>${int.task}</td><td>${int.obs}</td><td>${distKm.toFixed(2)}</td></tr>`;
+        total+=distKm; prev=curr;
+      }
+
+      document.getElementById('rows').innerHTML = html;
+      document.getElementById('total').textContent = total.toFixed(2);
+      const group = L.featureGroup();
+      map.eachLayer(l => { if(l instanceof L.Marker || l instanceof L.Polyline) group.addLayer(l); });
+      if (group.getLayers().length) map.fitBounds(group.getBounds(), {padding: [20, 20]});
+    }
+
+    document.getElementById('mapFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const img = document.createElement('img');
+          img.src = event.target.result;
+          const preview = document.getElementById('mapPreview');
+          preview.innerHTML = '';
+          preview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function generatePDF() {
+      html2pdf().set({ margin:0.5, filename:'bitacora.pdf' }).from(document.getElementById('bitacoraContent')).save();
+    }
+  </script>
 </body>
 </html>
