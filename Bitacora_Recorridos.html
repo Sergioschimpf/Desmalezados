@@ -2,172 +2,260 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Bitácora de recorridos con rutas reales</title>
+  <title>Bitácora de Recorridos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Flatpickr -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <!-- Google Fonts para modal -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #EDF1F2; margin: 0; padding: 20px; }
+    body {
+      font-family: 'Segoe UI', sans-serif; background: #EDF1F2;
+      margin: 0; padding: 20px;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
     h1 { text-align: center; color: #1A73E8; }
-    .field { margin-bottom: 10px; }
-    .field label { display: block; font-weight: bold; margin-bottom: 4px; }
-    .field input, .field textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    #map { height: 400px; margin: 10px 0; }
-    #mapPreview img { max-width: 100%; margin-top: 10px; }
-    table { width: 100%; border-collapse: collapse; margin: 10px 0; background: #fff; }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input, textarea {
+      width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px;
+    }
+    #map { height: 400px; margin: 15px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; background: #fff; }
     th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
     th { background: #1A73E8; color: #fff; }
-    .no-print { display: inline-block; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    button {
+      background: #1A73E8; color: #fff; border: none;
+      padding: 10px 20px; border-radius: 5px; font-weight: bold;
+      cursor: pointer; margin-right: 10px; margin-top: 10px;
+    }
+    button:hover { background: #1558b0; }
+    #snapshotContainer { display: none; margin-top: 20px; }
+    #snapshotContainer img { max-width: 100%; border: 2px solid #333; }
     @media print {
-      button, .no-print { display: none !important; }
-      #map { height: 400px !important; }
+      button, #map { display: none !important; }
+      #snapshotContainer { display: block !important; }
+    }
+
+    /* === MODAL PÁGINA EN CONSTRUCCIÓN === */
+    .overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+      font-family: 'Roboto', sans-serif;
+    }
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .modal {
+      background: #fff;
+      padding: 40px 30px;
+      border-radius: 12px;
+      text-align: center;
+      position: relative;
+      max-width: 400px;
+      width: 80%;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      transform: scale(1);
+      transition: transform 0.3s ease;
+    }
+    .overlay.hidden .modal {
+      transform: scale(0.8);
+    }
+    .modal h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      color: #333;
+    }
+    .modal p {
+      color: #555;
+      font-size: 16px;
+    }
+    .close-btn {
+      position: absolute;
+      top: 12px; right: 15px;
+      font-size: 22px;
+      font-weight: bold;
+      color: #999;
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+    .close-btn:hover {
+      color: #333;
     }
   </style>
 </head>
 <body>
-  <div id="bitacoraContent">
-    <h1>Bitácora de recorridos</h1>
-    <div class="field">
-      <label for="fecha">Fecha</label>
-      <input type="text" id="fecha" placeholder="YYYY-MM-DD">
-    </div>
-    <div class="field">
-      <label for="empresa">Empresa Contratista</label>
-      <input type="text" id="empresa">
-    </div>
-    <div class="field">
-      <label for="tecnico">Técnico Interviniente</label>
-      <input type="text" id="tecnico">
-    </div>
-    <div class="field">
-      <label for="inicio">Coordenadas Inicio (Lat, Lon)</label>
-      <input type="text" id="inicio" placeholder="-23.76166, -65.47649">
-    </div>
 
-    <h2>Intervenciones</h2>
-    <div class="field">
-      <label for="codigo">Código Sitio</label>
-      <input type="text" id="codigo">
-    </div>
-    <div class="field">
-      <label for="coord">Coordenadas Intervención (Lat, Lon)</label>
-      <input type="text" id="coord">
-    </div>
-    <div class="field">
-      <label for="tarea">Tarea</label>
-      <textarea id="tarea"></textarea>
-    </div>
-    <div class="field">
-      <label for="obs">Observación</label>
-      <textarea id="obs"></textarea>
-    </div>
-    <button class="no-print" type="button" onclick="addIntervention()">Agregar Intervención</button>
+<!-- MODAL EN CONSTRUCCIÓN -->
+<div id="constructionModal" class="overlay">
+  <div class="modal">
+    <span class="close-btn" onclick="closeModal()">×</span>
+    <h1>🚧 Página en construcción</h1>
+    <p>Estamos trabajando para mejorar esta bitácora.<br>¡Puedes usarla mientras tanto!</p>
+  </div>
+</div>
 
-    <div id="map"></div>
+<!-- CONTENIDO REAL -->
+<div id="bitacora">
+  <h1>Bitácora de Recorridos</h1>
 
-    <h2>Resumen de tramos</h2>
-    <table>
-      <thead>
-        <tr><th>#</th><th>Código</th><th>Lat</th><th>Lon</th><th>Tarea</th><th>Obs</th><th>Dist (km)</th></tr>
-      </thead>
-      <tbody id="rows"></tbody>
-      <tfoot>
-        <tr><td colspan="6">Total recorrido</td><td id="total">0.00</td></tr>
-      </tfoot>
-    </table>
+  <label>Fecha: <input type="text" id="fecha"></label>
+  <label>Empresa Contratista: <input type="text" id="empresa"></label>
+  <label>Técnico Interviniente: <input type="text" id="tecnico"></label>
+  <label>Coordenadas Inicio (Lat, Lon):
+    <input type="text" id="inicio" placeholder="-23.7616619, -65.4764927">
+  </label>
 
-    <div class="field no-print">
-      <label for="mapFile">Adjuntar imagen del mapa</label>
-      <input type="file" id="mapFile" accept="image/*">
-      <div id="mapPreview"></div>
-    </div>
+  <h3>Agregar Intervención</h3>
+  <label>Código Sitio: <input type="text" id="codigo"></label>
+  <label>Coordenadas Intervención (Lat, Lon): <input type="text" id="coord"></label>
+  <label>Tarea: <textarea id="tarea"></textarea></label>
+  <label>Observación: <textarea id="obs"></textarea></label>
+  <button onclick="addTramo()">Agregar Tramo</button>
+  <button onclick="guardarMapa()">Guardar Mapa</button>
+
+  <div id="map"></div>
+
+  <div id="snapshotContainer">
+    <h3>Mapa Guardado</h3>
+    <img id="mapSnapshot">
   </div>
 
-  <button class="no-print" type="button" onclick="generatePDF()">📄 Generar PDF</button>
+  <h3>Tramos Registrados</h3>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Código</th><th>Lat</th><th>Lon</th><th>Tarea</th><th>Obs</th><th>Dist (km)</th></tr>
+    </thead>
+    <tbody id="tabla"></tbody>
+    <tfoot>
+      <tr><th colspan="6">Total</th><th id="totalKm">0.00</th></tr>
+    </tfoot>
+  </table>
+</div>
 
-  <script>
-    flatpickr('#fecha', { dateFormat: 'Y-m-d' });
+<button onclick="exportarPDF()">📄 Exportar PDF</button>
 
-    const map = L.map('map').setView([-23.76166, -65.47649], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+<script>
+  flatpickr("#fecha", { dateFormat: "Y-m-d" });
 
-    let interventions = [];
-    const colors = ['#e74c3c', '#3498db', '#27ae60', '#f39c12', '#8e44ad'];
-    const apiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0='; // <-- PON TU API KEY AQUÍ
+  function closeModal() {
+    document.getElementById('constructionModal').classList.add('hidden');
+  }
 
-    function addIntervention() {
-      const code = document.getElementById('codigo').value.trim();
-      const coordStr = document.getElementById('coord').value.trim();
-      const task = document.getElementById('tarea').value.trim();
-      const obs = document.getElementById('obs').value.trim();
-      if (!code || !coordStr.includes(',')) return alert('Complete código y coordenadas correctamente');
-      const [lat, lon] = coordStr.split(',').map(Number);
-      if (isNaN(lat) || isNaN(lon)) return alert('Coordenadas inválidas');
-      interventions.push({ code, lat, lon, task, obs });
-      updateMap();
-      ['codigo','coord','tarea','obs'].forEach(id => document.getElementById(id).value = '');
+  const apiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0='; // Tu API KEY ORS
+  const map = L.map('map').setView([-23.76, -65.47], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+  let puntos = [];
+  const colores = ['#e74c3c', '#3498db', '#27ae60', '#f39c12', '#8e44ad'];
+  let layerGroup = L.layerGroup().addTo(map);
+
+  async function addTramo() {
+    const code = document.getElementById('codigo').value.trim();
+    const coords = document.getElementById('coord').value.trim();
+    const tarea = document.getElementById('tarea').value.trim();
+    const obs = document.getElementById('obs').value.trim();
+    if (!code || !coords.includes(',')) {
+      alert('Completa código y coordenadas');
+      return;
     }
-
-    async function getRealRoute(prev, curr) {
-      const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${prev[1]},${prev[0]}&end=${curr[1]},${curr[0]}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
-      const distKm = data.features[0].properties.summary.distance / 1000;
-      return { coords, distKm };
+    const [lat, lon] = coords.split(',').map(Number);
+    if (isNaN(lat) || isNaN(lon)) {
+      alert('Coordenadas inválidas');
+      return;
     }
+    puntos.push({ code, lat, lon, tarea, obs });
+    document.getElementById('codigo').value = '';
+    document.getElementById('coord').value = '';
+    document.getElementById('tarea').value = '';
+    document.getElementById('obs').value = '';
+    await dibujarRuta();
+  }
 
-    async function updateMap() {
-      map.eachLayer(layer => {
-        if (layer instanceof L.Marker || layer instanceof L.Polyline) map.removeLayer(layer);
-      });
-      const startStr = document.getElementById('inicio').value.trim();
-      if (!startStr.includes(',')) return;
-      let [lat0, lon0] = startStr.split(',').map(Number);
-      const start = [lat0, lon0];
+  async function dibujarRuta() {
+    layerGroup.clearLayers();
+    const inicioStr = document.getElementById('inicio').value.trim();
+    if (!inicioStr.includes(',')) return;
+    let [lat0, lon0] = inicioStr.split(',').map(Number);
+    let prev = { lat: lat0, lon: lon0 };
 
-      L.marker(start, {icon: L.divIcon({html: '<div style="background:#333;color:#fff;border-radius:50%;width:24px;height:24px;line-height:24px;text-align:center;">0</div>'})}).addTo(map);
-      let prev = start, total=0, html='';
+    L.marker([prev.lat, prev.lon], {
+      icon: L.divIcon({ html: '<div style="background:#333;color:#fff;border-radius:50%;width:24px;height:24px;line-height:24px;text-align:center;">0</div>' })
+    }).addTo(layerGroup).bindPopup('Inicio');
 
-      for (let i = 0; i < interventions.length; i++) {
-        const int = interventions[i];
-        const curr = [int.lat, int.lon];
-        const col = colors[i%colors.length];
-        const { coords, distKm } = await getRealRoute(prev, curr);
-        L.polyline(coords, {color: col}).addTo(map);
-        L.marker(curr, {icon: L.divIcon({html:`<div style="background:${col};color:#fff;border-radius:50%;width:24px;height:24px;line-height:24px;text-align:center;">${i+1}</div>`})}).addTo(map);
-        html+=`<tr><td>${i+1}</td><td>${int.code}</td><td>${int.lat.toFixed(5)}</td><td>${int.lon.toFixed(5)}</td><td>${int.task}</td><td>${int.obs}</td><td>${distKm.toFixed(2)}</td></tr>`;
-        total+=distKm; prev=curr;
+    let total = 0;
+    let html = '';
+    for (let i = 0; i < puntos.length; i++) {
+      const p = puntos[i];
+      try {
+        const res = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${prev.lon},${prev.lat}&end=${p.lon},${p.lat}`);
+        const data = await res.json();
+        const dist = data.features[0].properties.summary.distance / 1000;
+        total += dist;
+
+        const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        const color = colores[i % colores.length];
+        L.polyline(coords, { color }).addTo(layerGroup);
+        L.marker([p.lat, p.lon], {
+          icon: L.divIcon({ html: `<div style="background:${color};color:#fff;border-radius:50%;width:24px;height:24px;line-height:24px;text-align:center;">${i+1}</div>` })
+        }).addTo(layerGroup).bindPopup(`#${i+1} ${p.code}`);
+
+        html += `<tr><td>${i+1}</td><td>${p.code}</td><td>${p.lat.toFixed(5)}</td><td>${p.lon.toFixed(5)}</td><td>${p.tarea}</td><td>${p.obs}</td><td>${dist.toFixed(2)}</td></tr>`;
+
+        prev.lat = p.lat; prev.lon = p.lon;
+      } catch (e) {
+        console.error(e);
+        alert('Error generando ruta ORS');
       }
-
-      document.getElementById('rows').innerHTML = html;
-      document.getElementById('total').textContent = total.toFixed(2);
-      const group = L.featureGroup();
-      map.eachLayer(l => { if(l instanceof L.Marker || l instanceof L.Polyline) group.addLayer(l); });
-      if (group.getLayers().length) map.fitBounds(group.getBounds(), {padding: [20, 20]});
     }
 
-    document.getElementById('mapFile').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-          const img = document.createElement('img');
-          img.src = event.target.result;
-          const preview = document.getElementById('mapPreview');
-          preview.innerHTML = '';
-          preview.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-      }
+    document.getElementById('tabla').innerHTML = html;
+    document.getElementById('totalKm').textContent = total.toFixed(2);
+    if (layerGroup.getLayers().length > 0) {
+      map.fitBounds(layerGroup.getBounds(), { padding: [20, 20] });
+    }
+  }
+
+  function guardarMapa() {
+    const inicio = document.getElementById('inicio').value.trim();
+    if (!inicio.includes(',')) {
+      alert('Completa coordenadas de inicio.');
+      return;
+    }
+    const [lat0, lon0] = inicio.split(',').map(Number);
+    let coords = [`${lon0},${lat0}`];
+    puntos.forEach(p => {
+      coords.push(`${p.lon},${p.lat}`);
     });
+    const coordString = coords.join('|');
+    const staticUrl = `https://api.openrouteservice.org/mapsurfer?api_key=${apiKey}&layers=standard&profile=driving-car&format=png&width=800&height=500&coordinates=${encodeURIComponent(coordString)}`;
 
-    function generatePDF() {
-      html2pdf().set({ margin:0.5, filename:'bitacora.pdf' }).from(document.getElementById('bitacoraContent')).save();
-    }
-  </script>
+    const img = document.getElementById('mapSnapshot');
+    img.src = staticUrl;
+    document.getElementById('snapshotContainer').style.display = 'block';
+    alert('Mapa estático guardado. Se imprimirá correctamente.');
+  }
+
+  function exportarPDF() {
+    const element = document.getElementById('bitacora');
+    html2pdf().from(element).save();
+  }
+</script>
 </body>
 </html>
+
