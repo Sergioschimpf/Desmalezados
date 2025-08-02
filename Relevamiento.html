@@ -110,7 +110,6 @@
     .actions button:hover {
       background: #155ABD;
     }
-    /* Lightbox */
     #lightbox {
       display: none;
       position: fixed; 
@@ -167,7 +166,6 @@
         <input type="text" id="tecnico" required>
       </div>
 
-      <!-- Grupos de imágenes -->
       <div class="images-group" data-group="acceso">
         <h2>Foto de acceso al sitio</h2>
         <div class="upload-control">
@@ -224,7 +222,7 @@
 
   <script>
     function handleFiles(evt, group) {
-      const container = document.querySelector(`.images-group[data-group='${group}'] .upload-control`);
+      const container = document.querySelector(\`.images-group[data-group='\${group}'] .upload-control\`);
       Array.from(evt.target.files).forEach(file => {
         const reader = new FileReader();
         reader.onload = e => {
@@ -259,11 +257,9 @@
       document.getElementById('lightbox').style.display = 'none';
     }
   </script>
-<div class="no-print" style="text-align:center; margin:30px 0; display:flex; gap:20px; justify-content:center; flex-wrap:wrap;">
-  <a href="index.html"><button>🏠 Volver a Inicio</button></a>
-  
-</div>
+
+  <div class="no-print" style="text-align:center; margin:30px 0; display:flex; gap:20px; justify-content:center; flex-wrap:wrap;">
+    <a href="index.html"><button>🏠 Volver a Inicio</button></a>
+  </div>
 </body>
 </html>
-
-
