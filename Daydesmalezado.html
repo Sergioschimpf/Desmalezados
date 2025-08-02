@@ -35,7 +35,7 @@
     }
     #info-ruta { margin:12px 0; font-size:1.1em; }
     @media print {
-      input[type="file"], .preview .thumb span, button[onclick="window.print()"], .no-print { display: none !important; }
+      input[type="file"], .preview .thumb span, button[onclick], .no-print { display: none !important; }
       #map { display: block !important; width: 100% !important; height: 400px !important; }
       body, html { margin: 0; padding: 0; }
     }
@@ -58,14 +58,15 @@
   <div class="container"><h2>🚧 Circuito de desmalezado</h2></div>
   <div id="map"></div>
   <div class="container">
-    <label>Inicio recorrido: latitud y longitud (usar punto. Ej: -31.3093890, -65.0974200):</label><input type="text" id="input-origen">
+    <label>Inicio recorrido: latitud y longitud:</label><input type="text" id="input-origen">
     <button id="btn-geoloc">📍 Obtener coordenadas del Sitio a Intervenir (GPS)</button>
-    <label>Coordennada de Sitio a Intervenir (presionar boton):</label><input type="text" id="input-destino" readonly>
+    <label>Coordenada de Sitio a Intervenir:</label><input type="text" id="input-destino" readonly>
     <button id="btn-ruta">🛣️ Calcular Ruta</button>
     <div id="info-ruta"></div>
   </div>
   <div class="container">
     <h2>📷 Fotos del trabajo</h2>
+    <!-- BLOQUES DE FOTOS IGUAL QUE ANTES -->
     <h3>Caminos de accesos</h3><label>Antes:</label><input type="file" multiple onchange="previewImages(this,'prev-acc-antes')"><div id="prev-acc-antes" class="preview"></div><label>Después:</label><input type="file" multiple onchange="previewImages(this,'prev-acc-despues')"><div id="prev-acc-despues" class="preview"></div>
     <h3>Corta fuegos</h3><label>Antes:</label><input type="file" multiple onchange="previewImages(this,'prev-corta-antes')"><div id="prev-corta-antes" class="preview"></div><label>Después:</label><input type="file" multiple onchange="previewImages(this,'prev-corta-despues')"><div id="prev-corta-despues" class="preview"></div>
     <h3>Zonas pilar de energía</h3><label>Antes:</label><input type="file" multiple onchange="previewImages(this,'prev-pilar-antes')"><div id="prev-pilar-antes" class="preview"></div><label>Después:</label><input type="file" multiple onchange="previewImages(this,'prev-pilar-despues')"><div id="prev-pilar-despues" class="preview"></div>
@@ -73,10 +74,15 @@
     <h3>Podas</h3><label>Antes:</label><input type="file" multiple onchange="previewImages(this,'prev-poda-antes')"><div id="prev-poda-antes" class="preview"></div><label>Después:</label><input type="file" multiple onchange="previewImages(this,'prev-poda-despues')"><div id="prev-poda-despues" class="preview"></div>
     <h3>Vista general del sitio</h3><label>Antes:</label><input type="file" multiple onchange="previewImages(this,'prev-vista-antes')"><div id="prev-vista-antes" class="preview"></div><label>Después:</label><input type="file" multiple onchange="previewImages(this,'prev-vista-despues')"><div id="prev-vista-despues" class="preview"></div>
     <label>Observaciones:</label><textarea placeholder="Escribe observaciones"></textarea>
-    <button onclick="window.print()">🖨️ Imprimir Informe</button>
+    <button id="btn-pdf">🖨️ Imprimir Informe</button>
   </div>
+
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
   <script>
+    const FOLDER_ID = "1Fq42JQThD2knm-2mrxtArCGY96KYQz59";
     const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0=';
     const map = L.map('map').setView([-31.4,-64.2], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -128,11 +134,49 @@
         reader.readAsDataURL(file);
       });
     }
+
+    async function uploadToDrive(blob, filename) {
+      const metadata = { name: filename, parents: [FOLDER_ID] };
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+      form.append("file", blob);
+
+      await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + gapi.auth.getToken().access_token },
+        body: form
+      });
+    }
+
+    document.getElementById("btn-pdf").onclick = async () => {
+      const { jsPDF } = window.jspdf;
+      const canvas = await html2canvas(document.body, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+      const imgX = 0;
+      const imgY = 0;
+      pdf.addImage(imgData, 'PNG', imgX, imgY, canvas.width * ratio, canvas.height * ratio);
+      const filename = `Desmalezados_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.pdf`;
+      pdf.save(filename);
+
+      const pdfBlob = pdf.output('blob');
+      try {
+        await uploadToDrive(pdfBlob, filename);
+        alert("PDF subido correctamente a Drive.");
+      } catch (e) {
+        console.error(e);
+        alert("El PDF se descargó, pero no se pudo subir a Drive (ver consola).");
+      }
+    };
+
     window.onbeforeprint = () => { if (typeof map !== 'undefined') map.invalidateSize(); };
   </script>
+
   <div class="no-print" style="text-align:center; margin:30px 0; display:flex; gap:20px; justify-content:center; flex-wrap:wrap;">
-  <a href="index.html"><button>🏠 Volver a Inicio</button></a>
-  
-</div>
+    <a href="index.html"><button>🏠 Volver a Inicio</button></a>
+  </div>
 </body>
 </html>
