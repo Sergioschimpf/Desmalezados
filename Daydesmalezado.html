@@ -66,7 +66,6 @@
   </div>
   <div class="container">
     <h2>📷 Fotos del trabajo</h2>
-    <!-- BLOQUES DE FOTOS IGUAL QUE ANTES -->
     <h3>Caminos de accesos</h3><label>Antes:</label><input type="file" multiple onchange="previewImages(this,'prev-acc-antes')"><div id="prev-acc-antes" class="preview"></div><label>Después:</label><input type="file" multiple onchange="previewImages(this,'prev-acc-despues')"><div id="prev-acc-despues" class="preview"></div>
     <h3>Corta fuegos</h3><label>Antes:</label><input type="file" multiple onchange="previewImages(this,'prev-corta-antes')"><div id="prev-corta-antes" class="preview"></div><label>Después:</label><input type="file" multiple onchange="previewImages(this,'prev-corta-despues')"><div id="prev-corta-despues" class="preview"></div>
     <h3>Zonas pilar de energía</h3><label>Antes:</label><input type="file" multiple onchange="previewImages(this,'prev-pilar-antes')"><div id="prev-pilar-antes" class="preview"></div><label>Después:</label><input type="file" multiple onchange="previewImages(this,'prev-pilar-despues')"><div id="prev-pilar-despues" class="preview"></div>
@@ -82,7 +81,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <script>
-    const FOLDER_ID = "1Fq42JQThD2knm-2mrxtArCGY96KYQz59";
     const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0=';
     const map = L.map('map').setView([-31.4,-64.2], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -136,16 +134,14 @@
     }
 
     async function uploadToDrive(blob, filename) {
-      const metadata = { name: filename, parents: [FOLDER_ID] };
       const form = new FormData();
-      form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
-      form.append("file", blob);
+      form.append("file", blob, filename);
 
-      await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-        method: "POST",
-        headers: { "Authorization": "Bearer " + gapi.auth.getToken().access_token },
-        body: form
-      });
+      const url = "https://script.google.com/macros/s/AKfycbwwdi-ZZoPh1YASK-bt_RkV8Rcnk1IWMYdTqSxGL3f8h6FicM3XP1lf-xFqWwWI4CfM/exec";
+      const resp = await fetch(url, { method: "POST", body: form });
+      const txt = await resp.text();
+      console.log(txt);
+      return txt;
     }
 
     document.getElementById("btn-pdf").onclick = async () => {
@@ -156,9 +152,7 @@
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-      const imgX = 0;
-      const imgY = 0;
-      pdf.addImage(imgData, 'PNG', imgX, imgY, canvas.width * ratio, canvas.height * ratio);
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width * ratio, canvas.height * ratio);
       const filename = `Desmalezados_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.pdf`;
       pdf.save(filename);
 
@@ -168,7 +162,7 @@
         alert("PDF subido correctamente a Drive.");
       } catch (e) {
         console.error(e);
-        alert("El PDF se descargó, pero no se pudo subir a Drive (ver consola).");
+        alert("El PDF se descargó, pero no se pudo subir a Drive.");
       }
     };
 
