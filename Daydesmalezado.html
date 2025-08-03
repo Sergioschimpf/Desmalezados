@@ -77,15 +77,13 @@
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <script>
-    const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0=';
+    const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjE5OTI4ZjNjZDRlNzQ2NjJiNDU0YzJiMmI5YTRkZGY5IiwiaCI6Im11cm11cjY0In0='; // tu clave ORS
     const map = L.map('map').setView([-31.4,-64.2], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    const iconO = L.divIcon({ html:'<div style="background:#1A73E8;color:#fff;border-radius:50%;width:28px;height:28px;line-height:28px;text-align:center;">0</div>' });
-    const iconD = L.divIcon({ html:'<div style="background:#e60000;color:#fff;border-radius:50%;width:28px;height:28px;line-height:28px;text-align:center;">1</div>' });
+    const iconO = L.divIcon({ html:'<div style="background:#1A73E8;color:#fff;border-radius:50%;width:28px;height:28px;text-align:center;line-height:28px;">0</div>' });
+    const iconD = L.divIcon({ html:'<div style="background:#e60000;color:#fff;border-radius:50%;width:28px;height:28px;text-align:center;line-height:28px;">1</div>' });
     let markerO, markerD, rutaLayer;
 
     window.onload = () => {
@@ -133,37 +131,9 @@
       });
     }
 
-    async function uploadToDrive(blob, filename) {
-      const form = new FormData();
-      form.append("file", blob, filename);
-
-      const url = "https://script.google.com/macros/s/AKfycbwwdi-ZZoPh1YASK-bt_RkV8Rcnk1IWMYdTqSxGL3f8h6FicM3XP1lf-xFqWwWI4CfM/exec";
-      const resp = await fetch(url, { method: "POST", body: form });
-      const txt = await resp.text();
-      console.log(txt);
-      return txt;
-    }
-
-    document.getElementById("btn-pdf").onclick = async () => {
-      const { jsPDF } = window.jspdf;
-      const canvas = await html2canvas(document.body, { scale: 2 });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width * ratio, canvas.height * ratio);
-      const filename = `Desmalezados_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.pdf`;
-      pdf.save(filename);
-
-      const pdfBlob = pdf.output('blob');
-      try {
-        await uploadToDrive(pdfBlob, filename);
-        alert("PDF subido correctamente a Drive.");
-      } catch (e) {
-        console.error(e);
-        alert("El PDF se descargó, pero no se pudo subir a Drive.");
-      }
+    // BOTÓN IMPRIMIR NATIVO
+    document.getElementById("btn-pdf").onclick = () => {
+      window.print();
     };
 
     window.onbeforeprint = () => { if (typeof map !== 'undefined') map.invalidateSize(); };
