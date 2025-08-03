@@ -16,7 +16,30 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     position: relative;
   }
-  h1 { margin: 0; font-size: 1.5em; }
+  header img {
+    max-height: 80px;
+    display: block;
+    margin: 0 auto 10px auto;
+  }
+  header .home-btn {
+    position: absolute;
+    top: 15px; right: 20px;
+    background: white;
+    color: #2e7d32;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  header .home-btn:hover {
+    background: #e8f5e9;
+  }
+  h1 {
+    margin: 0; font-size: 1.5em;
+  }
   section {
     max-width: 600px; margin: 30px auto;
     background: white; padding: 20px;
@@ -24,8 +47,6 @@
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     text-align: center;
   }
-  .upload-block { margin: 20px 0; }
-  .hidden { display: none; }
   button {
     margin: 10px;
     padding: 10px 20px;
@@ -35,49 +56,55 @@
     transition: background 0.3s;
   }
   button:hover { background: #388e3c; }
-  input[type=file] { margin: 10px; }
+  input[type=file] { margin: 15px 0; }
+
+  /* Banner centrado */
   #success-banner {
     display: none;
     position: fixed;
-    top: 20px; left: 50%;
-    transform: translateX(-50%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     background: #4CAF50;
     color: white;
-    padding: 12px 20px;
-    border-radius: 6px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    font-size: 1.1em;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    font-size: 1.2em;
     z-index: 9999;
   }
 </style>
+<script src="https://apis.google.com/js/api.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="success-banner">Archivo subido exitosamente</div>
 
 <header>
+  <button class="home-btn" onclick="window.location.href='index.html'" id="volver-btn">Volver</button>
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOEAAADhCAYAAAA+7...">
   <h1>Subida de Archivos a Drive</h1>
 </header>
 
 <section>
-  <button id="login-btn">Iniciar sesión con Google</button>
+  <button onclick="authenticate()">Iniciar sesión con Google</button>
 
-  <div class="upload-block">
-    <h3>Bitácora</h3>
-    <input type="file" id="file-bitacora">
-    <button id="btn-bitacora" class="hidden">Subir</button>
+  <div>
+    <h3>Subir Bitácora</h3>
+    <input type="file" id="upload-bitacora">
+    <button onclick="uploadSelectedFile('Bitacora')">Subir</button>
   </div>
 
-  <div class="upload-block">
-    <h3>Desmalezado</h3>
-    <input type="file" id="file-desmalezado">
-    <button id="btn-desmalezado" class="hidden">Subir</button>
+  <div>
+    <h3>Subir Desmalezado</h3>
+    <input type="file" id="upload-desmalezado">
+    <button onclick="uploadSelectedFile('Desmalezado')">Subir</button>
   </div>
 
-  <div class="upload-block">
-    <h3>Relevamiento</h3>
-    <input type="file" id="file-relevamiento">
-    <button id="btn-relevamiento" class="hidden">Subir</button>
+  <div>
+    <h3>Subir Relevamiento</h3>
+    <input type="file" id="upload-relevamiento">
+    <button onclick="uploadSelectedFile('Relevamiento')">Subir</button>
   </div>
 </section>
 
@@ -91,53 +118,41 @@ const FOLDER_IDS = {
   "Relevamiento": "1uDnC7krR2eUpaG4y6AzmIgfvJk6jOVJR"
 };
 
-let tokenClient;
 let accessToken = null;
+let selectedFiles = {};
 
-window.onload = () => {
-  document.getElementById('login-btn').onclick = getAccessToken;
-
-  setupUploader('file-bitacora', 'btn-bitacora', 'Bitacora');
-  setupUploader('file-desmalezado', 'btn-desmalezado', 'Desmalezado');
-  setupUploader('file-relevamiento', 'btn-relevamiento', 'Relevamiento');
-};
-
-function getAccessToken() {
-  if (!tokenClient) {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: (tokenResponse) => {
-        accessToken = tokenResponse.access_token;
-        alert("Sesión iniciada correctamente");
-      },
-    });
-  }
-  tokenClient.requestAccessToken();
+function gapiLoaded() {
+  gapi.load("client:auth2", initializeGapiClient);
 }
 
-function setupUploader(inputId, buttonId, tipo) {
-  const input = document.getElementById(inputId);
-  const btn = document.getElementById(buttonId);
-
-  input.addEventListener('change', () => {
-    btn.classList.remove('hidden');
+async function initializeGapiClient() {
+  await gapi.client.init({
+    clientId: CLIENT_ID,
+    scope: SCOPES
   });
+}
 
-  btn.addEventListener('click', () => {
-    uploadFile(input.files[0], tipo);
+function authenticate() {
+  gapi.auth2.getAuthInstance().signIn().then(() => {
+    const user = gapi.auth2.getAuthInstance().currentUser.get();
+    const authResponse = user.getAuthResponse(true);
+    accessToken = authResponse.access_token;
+    alert("Sesión iniciada correctamente");
   });
 }
 
 function showSuccessBanner() {
   const banner = document.getElementById('success-banner');
   banner.style.display = 'block';
-  setTimeout(() => { banner.style.display = 'none'; }, 3000);
+  setTimeout(() => {
+    banner.style.display = 'none';
+  }, 3000);
 }
 
-function uploadFile(file, tipo) {
+function uploadSelectedFile(tipo) {
+  const file = selectedFiles[tipo];
   if (!file || !accessToken) {
-    alert("Primero inicia sesión y selecciona un archivo.");
+    alert("Inicia sesión primero y selecciona un archivo.");
     return;
   }
 
@@ -157,9 +172,22 @@ function uploadFile(file, tipo) {
     body: form
   })
   .then(r => r.json())
-  .then(() => showSuccessBanner())
+  .then(data => {
+    showSuccessBanner();
+  })
   .catch(err => console.error(err));
 }
+
+window.onload = () => {
+  document.getElementById('upload-bitacora')
+    .addEventListener('change', (e) => selectedFiles["Bitacora"] = e.target.files[0]);
+  document.getElementById('upload-desmalezado')
+    .addEventListener('change', (e) => selectedFiles["Desmalezado"] = e.target.files[0]);
+  document.getElementById('upload-relevamiento')
+    .addEventListener('change', (e) => selectedFiles["Relevamiento"] = e.target.files[0]);
+};
 </script>
+
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 </body>
 </html>
