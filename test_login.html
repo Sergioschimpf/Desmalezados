@@ -22,29 +22,27 @@ function initTokenClient() {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
-    callback: (response) => {
-      if (response.error) {
-        document.getElementById('output').innerText = 'Error: ' + JSON.stringify(response);
+    callback: (resp) => {
+      if (resp.error) {
+        document.getElementById('output').innerText = "Error: " + JSON.stringify(resp);
         return;
       }
-      // Ahora el token está disponible:
-      document.getElementById('output').innerText = "Token: " + response.access_token;
-    }
+      document.getElementById('output').innerText = "Token recibido: " + resp.access_token;
+    },
   });
 }
 
-document.getElementById('loginBtn').onclick = () => {
-  if (tokenClient) {
+window.onload = () => {
+  initTokenClient();
+  document.getElementById('loginBtn').onclick = () => {
     tokenClient.requestAccessToken();
-  } else {
-    document.getElementById('output').innerText = "TokenClient no inicializado aún.";
-  }
+  };
 };
-
-window.onload = initTokenClient;
 </script>
 </body>
 </html>
+
+
 
 
 
