@@ -5,46 +5,105 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Subir archivos a Drive</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f0f2f5; color: #333; }
-  header { background: #2e7d32; color: white; text-align: center; padding: 15px; position: relative; }
-  h1 { margin: 0; font-size: 1.5em; }
-  section { max-width: 600px; margin: 30px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
-  button { margin: 10px; padding: 10px 20px; background: #1b5e20; color: white; border: none; border-radius: 6px; font-size: 1em; cursor: pointer; transition: background 0.3s; }
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0; padding: 0;
+    background: #f0f2f5; color: #333;
+  }
+  header {
+    background: #2e7d32; color: white;
+    text-align: center; padding: 15px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    position: relative;
+  }
+  header img {
+    max-height: 80px;
+    display: block;
+    margin: 0 auto 10px auto;
+  }
+  header .home-btn {
+    position: absolute;
+    top: 15px; right: 20px;
+    background: white;
+    color: #2e7d32;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  header .home-btn:hover {
+    background: #e8f5e9;
+  }
+  h1 {
+    margin: 0; font-size: 1.5em;
+  }
+  section {
+    max-width: 600px; margin: 30px auto;
+    background: white; padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  button {
+    margin: 10px;
+    padding: 10px 20px;
+    background: #1b5e20; color: white;
+    border: none; border-radius: 6px;
+    font-size: 1em; cursor: pointer;
+    transition: background 0.3s;
+  }
   button:hover { background: #388e3c; }
   input[type=file] { margin: 15px 0; }
-  #success-banner { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #4CAF50; color: white; padding: 12px 20px; border-radius: 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); font-size: 1.1em; z-index: 9999; }
+  #success-banner {
+    display: none;
+    position: fixed;
+    top: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: #4CAF50;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    font-size: 1.1em;
+    z-index: 9999;
+  }
 </style>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-<div id="success-banner">Archivo subido exitosamente</div>
+<div id="success-banner"></div>
 
 <header>
+  <button class="home-btn" onclick="window.location.href='index.html'">Volver</button>
   <h1>Subida de Archivos a Drive</h1>
 </header>
 
 <section>
-  <button onclick="initLogin()">Iniciar sesión con Google</button>
+  <button onclick="authenticate()">Iniciar sesión con Google</button>
 
   <div>
-    <h3>Bitácora</h3>
+    <h3>Subir Bitácora</h3>
     <input type="file" id="upload-bitacora">
-    <button onclick="handleUpload('Bitacora')">Subir</button>
+    <button onclick="subirArchivo('Bitacora')">Subir</button>
   </div>
 
   <div>
-    <h3>Desmalezado</h3>
+    <h3>Subir Desmalezado</h3>
     <input type="file" id="upload-desmalezado">
-    <button onclick="handleUpload('Desmalezado')">Subir</button>
+    <button onclick="subirArchivo('Desmalezado')">Subir</button>
   </div>
 
   <div>
-    <h3>Relevamiento</h3>
+    <h3>Subir Relevamiento</h3>
     <input type="file" id="upload-relevamiento">
-    <button onclick="handleUpload('Relevamiento')">Subir</button>
+    <button onclick="subirArchivo('Relevamiento')">Subir</button>
   </div>
 </section>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
@@ -55,43 +114,43 @@ const FOLDER_IDS = {
   "Relevamiento": "1uDnC7krR2eUpaG4y6AzmIgfvJk6jOVJR"
 };
 
-let selectedFiles = { Bitacora: null, Desmalezado: null, Relevamiento: null };
 let accessToken = null;
-let tokenClient = null;
+let selectedFiles = {};
 
-function showSuccessBanner() {
+function gapiLoaded() {
+  gapi.load("client:auth2", initializeGapiClient);
+}
+async function initializeGapiClient() {
+  await gapi.client.init({ clientId: CLIENT_ID, scope: SCOPES });
+}
+
+function authenticate() {
+  gapi.auth2.getAuthInstance().signIn().then(() => {
+    const user = gapi.auth2.getAuthInstance().currentUser.get();
+    const authResponse = user.getAuthResponse(true);
+    accessToken = authResponse.access_token;
+    alert("Sesión iniciada correctamente");
+  });
+}
+
+function showSuccessBanner(link) {
   const banner = document.getElementById('success-banner');
+  banner.innerHTML = `Archivo subido: <a href="${link}" target="_blank" style="color:white;text-decoration:underline;">Abrir en Drive</a>`;
   banner.style.display = 'block';
-  setTimeout(() => banner.style.display = 'none', 3000);
+  setTimeout(() => {
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+  }, 8000);
 }
 
-function initLogin() {
-  if (!tokenClient) {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: (resp) => {
-        if (resp.error) {
-          console.error(resp);
-          return;
-        }
-        accessToken = resp.access_token;
-        alert("Sesión iniciada correctamente");
-      }
-    });
-  }
-  // Esto pide token (si no lo tiene) o lo renueva
-  tokenClient.requestAccessToken();
+function selectFile(event, tipo) {
+  selectedFiles[tipo] = event.target.files[0];
 }
 
-function handleUpload(tipo) {
-  if (!accessToken) {
-    alert("Primero inicia sesión");
-    return;
-  }
+function subirArchivo(tipo) {
   const file = selectedFiles[tipo];
-  if (!file) {
-    alert("Selecciona un archivo.");
+  if (!file || !accessToken) {
+    alert("Primero inicia sesión y selecciona un archivo.");
     return;
   }
 
@@ -102,7 +161,7 @@ function handleUpload(tipo) {
   };
 
   const form = new FormData();
-  form.append("metadata", new Blob([JSON.stringify(metadata)], {type: "application/json"}));
+  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
   form.append("file", file);
 
   fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
@@ -111,17 +170,27 @@ function handleUpload(tipo) {
     body: form
   })
   .then(r => r.json())
-  .then(() => { showSuccessBanner(); })
+  .then(data => {
+    if (data.id) {
+      const link = `https://drive.google.com/file/d/${data.id}/view`;
+      showSuccessBanner(link);
+    } else {
+      alert("Error subiendo el archivo: " + JSON.stringify(data));
+    }
+  })
   .catch(err => console.error(err));
 }
 
 window.onload = () => {
-  document.getElementById('upload-bitacora').addEventListener('change', e => selectedFiles.Bitacora = e.target.files[0]);
-  document.getElementById('upload-desmalezado').addEventListener('change', e => selectedFiles.Desmalezado = e.target.files[0]);
-  document.getElementById('upload-relevamiento').addEventListener('change', e => selectedFiles.Relevamiento = e.target.files[0]);
+  document.getElementById('upload-bitacora').addEventListener('change', (e) => selectFile(e, "Bitacora"));
+  document.getElementById('upload-desmalezado').addEventListener('change', (e) => selectFile(e, "Desmalezado"));
+  document.getElementById('upload-relevamiento').addEventListener('change', (e) => selectFile(e, "Relevamiento"));
 };
 </script>
+
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 </body>
 </html>
+
 
 
