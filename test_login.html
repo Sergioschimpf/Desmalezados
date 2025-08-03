@@ -3,10 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prueba Login Google</title>
+<title>Prueba Login Google (Nuevo)</title>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-<h2>Prueba de Login con Google</h2>
+<h2>Prueba de Login con Google (Nuevo)</h2>
 <button id="loginBtn">Iniciar Sesión</button>
 <pre id="output"></pre>
 
@@ -14,31 +16,37 @@
 const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-function initClient() {
-  gapi.client.init({
-    clientId: CLIENT_ID,
-    scope: SCOPES
-  }).then(() => {
-    document.getElementById('loginBtn').onclick = () => {
-      gapi.auth2.getAuthInstance().signIn().then(user => {
-        document.getElementById('output').innerText =
-          'Usuario: ' + user.getBasicProfile().getEmail();
-      }).catch(err => {
-        document.getElementById('output').innerText = 'Error: ' + JSON.stringify(err);
-      });
-    };
+let tokenClient;
+
+function initTokenClient() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (response) => {
+      if (response.error) {
+        document.getElementById('output').innerText = 'Error: ' + JSON.stringify(response);
+        return;
+      }
+      // Ahora el token está disponible:
+      document.getElementById('output').innerText = "Token: " + response.access_token;
+    }
   });
 }
 
-function handleClientLoad() {
-  gapi.load('client:auth2', initClient);
-}
-</script>
+document.getElementById('loginBtn').onclick = () => {
+  if (tokenClient) {
+    tokenClient.requestAccessToken();
+  } else {
+    document.getElementById('output').innerText = "TokenClient no inicializado aún.";
+  }
+};
 
-<script async defer src="https://apis.google.com/js/api.js"
-        onload="handleClientLoad()"></script>
+window.onload = initTokenClient;
+</script>
 </body>
 </html>
+
+
 
 
 
