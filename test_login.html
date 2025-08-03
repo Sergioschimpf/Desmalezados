@@ -3,20 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prueba Login Google (Nuevo)</title>
+<title>Subir Archivos a Drive</title>
 <script src="https://apis.google.com/js/api.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  body { font-family: Arial; text-align: center; padding: 20px; }
+  #msg { margin-top: 20px; color: green; font-weight: bold; }
+</style>
 </head>
 <body>
-<h2>Prueba de Login con Google (Nuevo)</h2>
+<h2>Subir Archivos a Google Drive</h2>
+
+<select id="folder">
+  <option value="1K4Zz8YQhkxbtqtm_kbUQe_I75HXs1YC">Bitacora</option>
+  <option value="1Fq42JQThD2knm-2mrxtArCGY96KYQz59">Desmalezado</option>
+  <option value="1uDnC7krR2eUpaG4y6AzmIgfvJk6J0VJR">Relevamiento</option>
+</select>
+<br><br>
+<input type="file" id="fileInput" />
+<br><br>
 <button id="loginBtn">Iniciar Sesión</button>
-<pre id="output"></pre>
+<button id="uploadBtn">Subir</button>
+
+<div id="msg"></div>
 
 <script>
 const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-
 let tokenClient;
+let accessToken = null;
 
 function initTokenClient() {
   tokenClient = google.accounts.oauth2.initTokenClient({
@@ -24,23 +39,61 @@ function initTokenClient() {
     scope: SCOPES,
     callback: (resp) => {
       if (resp.error) {
-        document.getElementById('output').innerText = "Error: " + JSON.stringify(resp);
+        document.getElementById('msg').innerText = "Error: " + JSON.stringify(resp);
         return;
       }
-      document.getElementById('output').innerText = "Token recibido: " + resp.access_token;
+      accessToken = resp.access_token;
+      document.getElementById('msg').innerText = "Sesión iniciada correctamente";
     },
   });
 }
 
 window.onload = () => {
   initTokenClient();
+
   document.getElementById('loginBtn').onclick = () => {
     tokenClient.requestAccessToken();
+  };
+
+  document.getElementById('uploadBtn').onclick = async () => {
+    if (!accessToken) {
+      document.getElementById('msg').innerText = "Primero inicia sesión";
+      return;
+    }
+
+    const file = document.getElementById('fileInput').files[0];
+    if (!file) {
+      document.getElementById('msg').innerText = "Selecciona un archivo";
+      return;
+    }
+
+    const folderId = document.getElementById('folder').value;
+
+    const metadata = {
+      name: file.name,
+      parents: [folderId]
+    };
+
+    const form = new FormData();
+    form.append("metadata", new Blob([JSON.stringify(metadata)], {type: "application/json"}));
+    form.append("file", file);
+
+    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+      method: "POST",
+      headers: new Headers({ "Authorization": "Bearer " + accessToken }),
+      body: form,
+    });
+
+    const data = await res.json();
+    document.getElementById('msg').innerText = data.id
+      ? "Archivo subido con éxito!"
+      : "Error al subir: " + JSON.stringify(data);
   };
 };
 </script>
 </body>
 </html>
+
 
 
 
