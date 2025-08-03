@@ -16,11 +16,6 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     position: relative;
   }
-  header img {
-    max-height: 80px;
-    display: block;
-    margin: 0 auto 10px auto;
-  }
   header .home-btn {
     position: absolute;
     top: 15px; right: 20px;
@@ -37,9 +32,7 @@
   header .home-btn:hover {
     background: #e8f5e9;
   }
-  h1 {
-    margin: 0; font-size: 1.5em;
-  }
+  h1 { margin: 0; font-size: 1.5em; }
   section {
     max-width: 600px; margin: 30px auto;
     background: white; padding: 20px;
@@ -71,8 +64,6 @@
     z-index: 9999;
   }
 </style>
-<script src="https://apis.google.com/js/api.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="success-banner">Archivo subido exitosamente</div>
@@ -104,6 +95,7 @@
   </div>
 </section>
 
+<script src="https://apis.google.com/js/api.js"></script>
 <script>
 const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
@@ -114,7 +106,6 @@ const FOLDER_IDS = {
   "Relevamiento": "1uDnC7krR2eUpaG4y6AzmIgfvJk6jOVJR"
 };
 
-let accessToken = null;
 let selectedFiles = { Bitacora: null, Desmalezado: null, Relevamiento: null };
 
 function gapiLoaded() {
@@ -130,9 +121,6 @@ async function initializeGapiClient() {
 
 function authenticate() {
   gapi.auth2.getAuthInstance().signIn().then(() => {
-    const user = gapi.auth2.getAuthInstance().currentUser.get();
-    const authResponse = user.getAuthResponse(true);
-    accessToken = authResponse.access_token;
     alert("Sesión iniciada correctamente");
   });
 }
@@ -140,17 +128,25 @@ function authenticate() {
 function showSuccessBanner() {
   const banner = document.getElementById('success-banner');
   banner.style.display = 'block';
-  setTimeout(() => {
-    banner.style.display = 'none';
-  }, 3000);
+  setTimeout(() => { banner.style.display = 'none'; }, 3000);
 }
 
-function uploadFile(tipo) {
+async function uploadFile(tipo) {
   const file = selectedFiles[tipo];
-  if (!file || !accessToken) {
-    alert("Inicia sesión primero y selecciona un archivo.");
+  if (!file) {
+    alert("Selecciona un archivo primero.");
     return;
   }
+
+  const user = gapi.auth2.getAuthInstance().currentUser.get();
+  if (!user.isSignedIn()) {
+    alert("Primero debes iniciar sesión.");
+    return;
+  }
+
+  // Renueva el token antes de cada subida
+  const authResponse = await user.reloadAuthResponse();
+  const token = authResponse.access_token;
 
   const metadata = {
     name: `${tipo}_${file.name}`,
@@ -164,13 +160,11 @@ function uploadFile(tipo) {
 
   fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
     method: "POST",
-    headers: new Headers({ "Authorization": "Bearer " + accessToken }),
+    headers: new Headers({ "Authorization": "Bearer " + token }),
     body: form
   })
   .then(r => r.json())
-  .then(() => {
-    showSuccessBanner();
-  })
+  .then(() => { showSuccessBanner(); })
   .catch(err => console.error(err));
 }
 
@@ -188,6 +182,7 @@ window.onload = () => {
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 </body>
 </html>
+
 
 
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
