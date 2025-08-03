@@ -24,7 +24,8 @@ function initClient() {
   gapi.client.init({
     apiKey: API_KEY,
     clientId: CLIENT_ID,
-    scope: SCOPES
+    scope: SCOPES,
+    plugin_name: "drive-uploader"
   }).then(() => {
     document.getElementById('loginBtn').onclick = () => {
       gapi.auth2.getAuthInstance().signIn().then(user => {
@@ -41,3 +42,7 @@ handleClientLoad();
 </script>
 </body>
 </html>
+
+
+
+
