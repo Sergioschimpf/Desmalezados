@@ -16,11 +16,6 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     position: relative;
   }
-  header img {
-    max-height: 80px;
-    display: block;
-    margin: 0 auto 10px auto;
-  }
   header .home-btn {
     position: absolute;
     top: 15px; right: 20px;
@@ -34,12 +29,8 @@
     cursor: pointer;
     transition: background 0.3s;
   }
-  header .home-btn:hover {
-    background: #e8f5e9;
-  }
-  h1 {
-    margin: 0; font-size: 1.5em;
-  }
+  header .home-btn:hover { background: #e8f5e9; }
+  h1 { margin: 0; font-size: 1.5em; }
   section {
     max-width: 600px; margin: 30px auto;
     background: white; padding: 20px;
@@ -57,32 +48,30 @@
   }
   button:hover { background: #388e3c; }
   input[type=file] { margin: 15px 0; }
-
-  /* Banner centrado */
-  #success-banner {
+  #banner {
     display: none;
     position: fixed;
-    top: 50%;
-    left: 50%;
+    top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     background: #4CAF50;
     color: white;
-    padding: 16px 24px;
+    padding: 20px 30px;
     border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     font-size: 1.2em;
     z-index: 9999;
+    text-align: center;
   }
+  #banner.error { background: #e53935; }
 </style>
 <script src="https://apis.google.com/js/api.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-<div id="success-banner">Archivo subido exitosamente</div>
+<div id="banner"></div>
 
 <header>
-  <button class="home-btn" onclick="window.location.href='index.html'" id="volver-btn">Volver</button>
-  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOEAAADhCAYAAAA+7...">
+  <button class="home-btn" onclick="window.location.href='index.html'">Volver</button>
   <h1>Subida de Archivos a Drive</h1>
 </header>
 
@@ -90,20 +79,20 @@
   <button onclick="authenticate()">Iniciar sesión con Google</button>
 
   <div>
-    <h3>Subir Bitácora</h3>
-    <input type="file" id="upload-bitacora">
+    <h3>Bitácora</h3>
+    <input type="file" id="file-bitacora">
     <button onclick="uploadSelectedFile('Bitacora')">Subir</button>
   </div>
 
   <div>
-    <h3>Subir Desmalezado</h3>
-    <input type="file" id="upload-desmalezado">
+    <h3>Desmalezado</h3>
+    <input type="file" id="file-desmalezado">
     <button onclick="uploadSelectedFile('Desmalezado')">Subir</button>
   </div>
 
   <div>
-    <h3>Subir Relevamiento</h3>
-    <input type="file" id="upload-relevamiento">
+    <h3>Relevamiento</h3>
+    <input type="file" id="file-relevamiento">
     <button onclick="uploadSelectedFile('Relevamiento')">Subir</button>
   </div>
 </section>
@@ -119,7 +108,6 @@ const FOLDER_IDS = {
 };
 
 let accessToken = null;
-let selectedFiles = {};
 
 function gapiLoaded() {
   gapi.load("client:auth2", initializeGapiClient);
@@ -134,25 +122,37 @@ async function initializeGapiClient() {
 
 function authenticate() {
   gapi.auth2.getAuthInstance().signIn().then(() => {
-    const user = gapi.auth2.getAuthInstance().currentUser.get();
-    const authResponse = user.getAuthResponse(true);
+    const authResponse = gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse(true);
     accessToken = authResponse.access_token;
-    alert("Sesión iniciada correctamente");
+    gapi.client.setToken({ access_token: accessToken });
+
+    console.log("Token obtenido:", accessToken);
+    showBanner("Sesión iniciada correctamente", false);
+  }).catch(err => {
+    console.error("Error al iniciar sesión", err);
+    showBanner("Error al iniciar sesión", true);
   });
 }
 
-function showSuccessBanner() {
-  const banner = document.getElementById('success-banner');
+function showBanner(msg, isError) {
+  const banner = document.getElementById('banner');
+  banner.textContent = msg;
+  banner.className = isError ? 'error' : '';
   banner.style.display = 'block';
-  setTimeout(() => {
-    banner.style.display = 'none';
-  }, 3000);
+  setTimeout(() => { banner.style.display = 'none'; }, 3000);
 }
 
 function uploadSelectedFile(tipo) {
-  const file = selectedFiles[tipo];
-  if (!file || !accessToken) {
-    alert("Inicia sesión primero y selecciona un archivo.");
+  console.log("Token actual:", accessToken);
+
+  const fileInput = document.getElementById(`file-${tipo.toLowerCase()}`);
+  const file = fileInput.files[0];
+  if (!file) {
+    showBanner("Primero selecciona un archivo", true);
+    return;
+  }
+  if (!accessToken) {
+    showBanner("Inicia sesión primero", true);
     return;
   }
 
@@ -173,19 +173,20 @@ function uploadSelectedFile(tipo) {
   })
   .then(r => r.json())
   .then(data => {
-    showSuccessBanner();
+    console.log("Respuesta de Google:", data);
+    showBanner("Archivo subido correctamente", false);
   })
-  .catch(err => console.error(err));
+  .catch(err => {
+    console.error(err);
+    showBanner("Error al subir archivo", true);
+  });
 }
+</script>
 
-window.onload = () => {
-  document.getElementById('upload-bitacora')
-    .addEventListener('change', (e) => selectedFiles["Bitacora"] = e.target.files[0]);
-  document.getElementById('upload-desmalezado')
-    .addEventListener('change', (e) => selectedFiles["Desmalezado"] = e.target.files[0]);
-  document.getElementById('upload-relevamiento')
-    .addEventListener('change', (e) => selectedFiles["Relevamiento"] = e.target.files[0]);
-};
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+</body>
+</html>
+
 </script>
 
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
