@@ -5,23 +5,69 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Subir archivos a Drive</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f0f2f5; color: #333; }
-  header { background: #2e7d32; color: white; text-align: center; padding: 15px; position: relative; }
-  header .home-btn { position: absolute; top: 15px; right: 20px; background: white; color: #2e7d32;
-    border: none; border-radius: 6px; padding: 6px 12px; font-size: 0.9em; font-weight: bold; cursor: pointer; }
-  h1 { margin: 0; font-size: 1.5em; }
-  section { max-width: 600px; margin: 30px auto; background: white; padding: 20px; border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
-  button { margin: 10px; padding: 10px 20px; background: #1b5e20; color: white; border: none; border-radius: 6px;
-    font-size: 1em; cursor: pointer; }
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0; padding: 0;
+    background: #f0f2f5; color: #333;
+  }
+  header {
+    background: #2e7d32; color: white;
+    text-align: center; padding: 15px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    position: relative;
+  }
+  header h1 { margin: 0; font-size: 1.5em; }
+  header .home-btn {
+    position: absolute;
+    top: 15px; right: 20px;
+    background: white;
+    color: #2e7d32;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  header .home-btn:hover { background: #e8f5e9; }
+  section {
+    max-width: 600px; margin: 30px auto;
+    background: white; padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  .upload-group { margin-bottom: 25px; }
+  button {
+    margin: 10px;
+    padding: 10px 20px;
+    background: #1b5e20; color: white;
+    border: none; border-radius: 6px;
+    font-size: 1em; cursor: pointer;
+    transition: background 0.3s;
+  }
   button:hover { background: #388e3c; }
   input[type=file] { margin: 15px 0; }
-  #banner { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    background: #4CAF50; color: white; padding: 20px 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    font-size: 1.2em; z-index: 9999; text-align: center; }
+  #banner {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    background: #4CAF50;
+    color: white;
+    padding: 15px 25px;
+    border-radius: 6px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    font-size: 1.2em;
+    z-index: 9999;
+    text-align: center;
+  }
   #banner.error { background: #e53935; }
 </style>
 <script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="banner"></div>
@@ -34,28 +80,27 @@
 <section>
   <button onclick="authenticate()">Iniciar sesión con Google</button>
 
-  <div>
+  <div class="upload-group">
     <h3>Bitácora</h3>
-    <input type="file" id="file-bitacora">
-    <button onclick="uploadSelectedFile('Bitacora')">Subir</button>
+    <input type="file" id="file-Bitacora">
+    <button onclick="uploadSelected('Bitacora')">Subir</button>
   </div>
 
-  <div>
+  <div class="upload-group">
     <h3>Desmalezado</h3>
-    <input type="file" id="file-desmalezado">
-    <button onclick="uploadSelectedFile('Desmalezado')">Subir</button>
+    <input type="file" id="file-Desmalezado">
+    <button onclick="uploadSelected('Desmalezado')">Subir</button>
   </div>
 
-  <div>
+  <div class="upload-group">
     <h3>Relevamiento</h3>
-    <input type="file" id="file-relevamiento">
-    <button onclick="uploadSelectedFile('Relevamiento')">Subir</button>
+    <input type="file" id="file-Relevamiento">
+    <button onclick="uploadSelected('Relevamiento')">Subir</button>
   </div>
 </section>
 
 <script>
 const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
-const API_KEY = ""; // si tienes uno, puedes ponerlo
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
 
 const FOLDER_IDS = {
@@ -64,13 +109,22 @@ const FOLDER_IDS = {
   "Relevamiento": "1uDnC7krR2eUpaG4y6AzmIgfvJk6jOVJR"
 };
 
+let accessToken = null;
+
+function showBanner(msg, error=false) {
+  const banner = document.getElementById('banner');
+  banner.textContent = msg;
+  banner.classList.toggle('error', error);
+  banner.style.display = 'block';
+  setTimeout(() => { banner.style.display = 'none'; }, 3000);
+}
+
 function gapiLoaded() {
   gapi.load("client:auth2", initializeGapiClient);
 }
 
 async function initializeGapiClient() {
   await gapi.client.init({
-    apiKey: API_KEY,
     clientId: CLIENT_ID,
     scope: SCOPES
   });
@@ -78,71 +132,53 @@ async function initializeGapiClient() {
 
 function authenticate() {
   gapi.auth2.getAuthInstance().signIn().then(() => {
-    showBanner("Sesión iniciada correctamente", false);
-  }).catch(err => {
-    console.error(err);
-    showBanner("Error al iniciar sesión", true);
-  });
+    const user = gapi.auth2.getAuthInstance().currentUser.get();
+    const authResponse = user.getAuthResponse(true);
+    accessToken = authResponse.access_token;
+    showBanner("Sesión iniciada correctamente");
+  }).catch(() => showBanner("Error de inicio de sesión", true));
 }
 
-function showBanner(msg, isError) {
-  const banner = document.getElementById('banner');
-  banner.textContent = msg;
-  banner.className = isError ? 'error' : '';
-  banner.style.display = 'block';
-  setTimeout(() => { banner.style.display = 'none'; }, 3000);
-}
-
-function uploadSelectedFile(tipo) {
-  const fileInput = document.getElementById(`file-${tipo.toLowerCase()}`);
+function uploadSelected(tipo) {
+  const fileInput = document.getElementById(`file-${tipo}`);
   const file = fileInput.files[0];
   if (!file) {
-    showBanner("Primero selecciona un archivo", true);
+    showBanner("Selecciona un archivo", true);
+    return;
+  }
+  if (!accessToken) {
+    showBanner("Inicia sesión primero", true);
     return;
   }
 
-  const boundary = "-------314159265358979323846";
-  const delimiter = "\r\n--" + boundary + "\r\n";
-  const close_delim = "\r\n--" + boundary + "--";
-
-  const reader = new FileReader();
-  reader.readAsBinaryString(file);
-  reader.onload = function(e) {
-    const contentType = file.type || 'application/octet-stream';
-    const metadata = {
-      name: `${tipo}_${file.name}`,
-      mimeType: contentType,
-      parents: [FOLDER_IDS[tipo]]
-    };
-
-    const base64Data = btoa(reader.result);
-    const multipartRequestBody =
-      delimiter + 'Content-Type: application/json\r\n\r\n' +
-      JSON.stringify(metadata) +
-      delimiter + 'Content-Type: ' + contentType + '\r\n' +
-      'Content-Transfer-Encoding: base64\r\n\r\n' +
-      base64Data + close_delim;
-
-    gapi.client.request({
-      path: '/upload/drive/v3/files',
-      method: 'POST',
-      params: { uploadType: 'multipart' },
-      headers: { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' },
-      body: multipartRequestBody
-    }).then((response) => {
-      console.log(response);
-      showBanner("Archivo subido correctamente", false);
-    }, (error) => {
-      console.error(error);
-      showBanner("Error al subir archivo", true);
-    });
+  const metadata = {
+    name: `${tipo}_${file.name}`,
+    mimeType: file.type,
+    parents: [FOLDER_IDS[tipo]]
   };
+
+  const form = new FormData();
+  form.append("metadata", new Blob([JSON.stringify(metadata)], {type: "application/json"}));
+  form.append("file", file);
+
+  fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+    method: "POST",
+    headers: new Headers({ "Authorization": "Bearer " + accessToken }),
+    body: form
+  })
+  .then(r => r.json())
+  .then(() => {
+    showBanner("Archivo subido correctamente");
+    fileInput.value = "";
+  })
+  .catch(() => showBanner("Error al subir archivo", true));
 }
 </script>
 
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 </body>
 </html>
+
 
 
 </script>
