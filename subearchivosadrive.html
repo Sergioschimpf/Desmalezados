@@ -16,12 +16,18 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     position: relative;
   }
+  header img {
+    max-height: 80px;
+    display: block;
+    margin: 0 auto 10px auto;
+  }
   header .home-btn {
     position: absolute;
     top: 15px; right: 20px;
     background: white;
     color: #2e7d32;
-    border: none; border-radius: 6px;
+    border: none;
+    border-radius: 6px;
     padding: 6px 12px;
     font-size: 0.9em;
     font-weight: bold;
@@ -49,7 +55,7 @@
   }
   button:hover { background: #388e3c; }
   input[type=file] { margin: 15px 0; }
-  .banner {
+  #success-banner, #error-banner {
     display: none;
     position: fixed;
     top: 20px; left: 50%;
@@ -60,18 +66,15 @@
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     font-size: 1.1em;
     z-index: 9999;
-    max-width: 80%;
-    text-align: center;
   }
-  .success { background: #4CAF50; }
-  .error { background: #f44336; }
+  #success-banner { background: #4CAF50; }
+  #error-banner { background: #d32f2f; }
 </style>
-<script src="https://apis.google.com/js/api.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-<div id="success-banner" class="banner success"></div>
-<div id="error-banner" class="banner error"></div>
+<div id="success-banner">Archivo subido exitosamente</div>
+<div id="error-banner">Error al iniciar sesión</div>
 
 <header>
   <button class="home-btn" onclick="window.location.href='index.html'">Volver</button>
@@ -79,24 +82,24 @@
 </header>
 
 <section>
-  <button onclick="authenticate()">Iniciar sesión con Google</button>
+  <button id="login-btn">Iniciar sesión con Google</button>
 
   <div>
     <h3>Subir Bitácora</h3>
-    <input type="file" id="upload-bitacora">
-    <button onclick="subirArchivo('Bitacora')">Subir</button>
+    <input type="file" id="file-bitacora">
+    <button id="upload-bitacora">Subir</button>
   </div>
 
   <div>
     <h3>Subir Desmalezado</h3>
-    <input type="file" id="upload-desmalezado">
-    <button onclick="subirArchivo('Desmalezado')">Subir</button>
+    <input type="file" id="file-desmalezado">
+    <button id="upload-desmalezado">Subir</button>
   </div>
 
   <div>
     <h3>Subir Relevamiento</h3>
-    <input type="file" id="upload-relevamiento">
-    <button onclick="subirArchivo('Relevamiento')">Subir</button>
+    <input type="file" id="file-relevamiento">
+    <button id="upload-relevamiento">Subir</button>
   </div>
 </section>
 
@@ -111,67 +114,44 @@ const FOLDER_IDS = {
 };
 
 let accessToken = null;
-let selectedFiles = {};
+let tokenClient = null;
 
-function gapiLoaded() {
-  console.log("gapiLoaded: librería cargada.");
-  gapi.load("client:auth2", initializeGapiClient);
-}
-async function initializeGapiClient() {
-  console.log("Inicializando gapi client...");
-  await gapi.client.init({ clientId: CLIENT_ID, scope: SCOPES });
-  console.log("gapi client inicializado.");
+function showBanner(id) {
+  const el = document.getElementById(id);
+  el.style.display = "block";
+  setTimeout(() => { el.style.display = "none"; }, 3000);
 }
 
-function authenticate() {
-  console.log("Iniciando login...");
-  gapi.auth2.getAuthInstance().signIn().then(() => {
-    const user = gapi.auth2.getAuthInstance().currentUser.get();
-    const authResponse = user.getAuthResponse(true);
-    accessToken = authResponse.access_token;
-    console.log("Login exitoso. AccessToken obtenido.");
-    alert("Sesión iniciada correctamente");
-  }).catch(err => {
-    console.error("Error durante login:", err);
-    showErrorBanner("Error durante login: " + err.error);
+// Inicializar cliente OAuth
+window.onload = () => {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (tokenResponse) => {
+      if (tokenResponse && tokenResponse.access_token) {
+        accessToken = tokenResponse.access_token;
+        showBanner('success-banner');
+      } else {
+        showBanner('error-banner');
+      }
+    },
   });
-}
 
-function showBanner(id, msg) {
-  const banner = document.getElementById(id);
-  banner.innerHTML = msg;
-  banner.style.display = 'block';
-  setTimeout(() => {
-    banner.style.display = 'none';
-    banner.innerHTML = '';
-  }, 8000);
-}
+  document.getElementById("login-btn").addEventListener("click", () => {
+    tokenClient.requestAccessToken();
+  });
 
-function showSuccessBanner(link) {
-  showBanner('success-banner', `Archivo subido: <a href="${link}" target="_blank" style="color:white;text-decoration:underline;">Abrir en Drive</a>`);
-}
-function showErrorBanner(msg) {
-  showBanner('error-banner', msg);
-}
+  document.getElementById("upload-bitacora").addEventListener("click", () => handleUpload("Bitacora"));
+  document.getElementById("upload-desmalezado").addEventListener("click", () => handleUpload("Desmalezado"));
+  document.getElementById("upload-relevamiento").addEventListener("click", () => handleUpload("Relevamiento"));
+};
 
-function selectFile(event, tipo) {
-  selectedFiles[tipo] = event.target.files[0];
-  console.log(`Archivo seleccionado para ${tipo}:`, selectedFiles[tipo]);
-}
+function handleUpload(tipo) {
+  const input = document.getElementById(`file-${tipo.toLowerCase()}`);
+  const file = input.files[0];
+  if (!file) { alert("Selecciona un archivo."); return; }
+  if (!accessToken) { alert("Primero inicia sesión."); return; }
 
-function subirArchivo(tipo) {
-  console.log(`Intentando subir archivo de tipo: ${tipo}`);
-  const file = selectedFiles[tipo];
-  if (!file) {
-    showErrorBanner("Selecciona un archivo antes de subir.");
-    return;
-  }
-  if (!accessToken) {
-    showErrorBanner("Primero inicia sesión con Google.");
-    return;
-  }
-
-  console.log("Preparando metadata...");
   const metadata = {
     name: `${tipo}_${file.name}`,
     mimeType: file.type,
@@ -182,37 +162,15 @@ function subirArchivo(tipo) {
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
   form.append("file", file);
 
-  console.log("Enviando a Drive...");
   fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
     method: "POST",
     headers: new Headers({ "Authorization": "Bearer " + accessToken }),
     body: form
   })
   .then(r => r.json())
-  .then(data => {
-    console.log("Respuesta de Google Drive:", data);
-    if (data.id) {
-      const link = `https://drive.google.com/file/d/${data.id}/view`;
-      console.log("Subida exitosa. Link:", link);
-      showSuccessBanner(link);
-    } else {
-      console.error("Error en la respuesta de subida:", data);
-      showErrorBanner("Error subiendo el archivo. Ver consola (F12).");
-    }
-  })
-  .catch(err => {
-    console.error("Error en fetch:", err);
-    showErrorBanner("Error en la conexión al subir el archivo.");
-  });
+  .then(() => showBanner('success-banner'))
+  .catch(() => showBanner('error-banner'));
 }
-
-window.onload = () => {
-  document.getElementById('upload-bitacora').addEventListener('change', (e) => selectFile(e, "Bitacora"));
-  document.getElementById('upload-desmalezado').addEventListener('change', (e) => selectFile(e, "Desmalezado"));
-  document.getElementById('upload-relevamiento').addEventListener('change', (e) => selectFile(e, "Relevamiento"));
-};
 </script>
-
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 </body>
 </html>
