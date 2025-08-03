@@ -16,27 +16,6 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     position: relative;
   }
-  header img {
-    max-height: 80px;
-    display: block;
-    margin: 0 auto 10px auto;
-  }
-  header .home-btn {
-    position: absolute;
-    top: 15px; right: 20px;
-    background: white;
-    color: #2e7d32;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 12px;
-    font-size: 0.9em;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.3s;
-  }
-  header .home-btn:hover {
-    background: #e8f5e9;
-  }
   h1 { margin: 0; font-size: 1.5em; }
   section {
     max-width: 600px; margin: 30px auto;
@@ -45,6 +24,8 @@
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     text-align: center;
   }
+  .upload-block { margin: 20px 0; }
+  .hidden { display: none; }
   button {
     margin: 10px;
     padding: 10px 20px;
@@ -54,12 +35,13 @@
     transition: background 0.3s;
   }
   button:hover { background: #388e3c; }
-  input[type=file] { margin: 15px 0; }
-  #success-banner, #error-banner {
+  input[type=file] { margin: 10px; }
+  #success-banner {
     display: none;
     position: fixed;
     top: 20px; left: 50%;
     transform: translateX(-50%);
+    background: #4CAF50;
     color: white;
     padding: 12px 20px;
     border-radius: 6px;
@@ -67,39 +49,35 @@
     font-size: 1.1em;
     z-index: 9999;
   }
-  #success-banner { background: #4CAF50; }
-  #error-banner { background: #d32f2f; }
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="success-banner">Archivo subido exitosamente</div>
-<div id="error-banner">Error al iniciar sesión</div>
 
 <header>
-  <button class="home-btn" onclick="window.location.href='index.html'">Volver</button>
   <h1>Subida de Archivos a Drive</h1>
 </header>
 
 <section>
   <button id="login-btn">Iniciar sesión con Google</button>
 
-  <div>
-    <h3>Subir Bitácora</h3>
+  <div class="upload-block">
+    <h3>Bitácora</h3>
     <input type="file" id="file-bitacora">
-    <button id="upload-bitacora">Subir</button>
+    <button id="btn-bitacora" class="hidden">Subir</button>
   </div>
 
-  <div>
-    <h3>Subir Desmalezado</h3>
+  <div class="upload-block">
+    <h3>Desmalezado</h3>
     <input type="file" id="file-desmalezado">
-    <button id="upload-desmalezado">Subir</button>
+    <button id="btn-desmalezado" class="hidden">Subir</button>
   </div>
 
-  <div>
-    <h3>Subir Relevamiento</h3>
+  <div class="upload-block">
+    <h3>Relevamiento</h3>
     <input type="file" id="file-relevamiento">
-    <button id="upload-relevamiento">Subir</button>
+    <button id="btn-relevamiento" class="hidden">Subir</button>
   </div>
 </section>
 
@@ -113,44 +91,55 @@ const FOLDER_IDS = {
   "Relevamiento": "1uDnC7krR2eUpaG4y6AzmIgfvJk6jOVJR"
 };
 
+let tokenClient;
 let accessToken = null;
-let tokenClient = null;
 
-function showBanner(id) {
-  const el = document.getElementById(id);
-  el.style.display = "block";
-  setTimeout(() => { el.style.display = "none"; }, 3000);
-}
-
-// Inicializar cliente OAuth
 window.onload = () => {
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: (tokenResponse) => {
-      if (tokenResponse && tokenResponse.access_token) {
-        accessToken = tokenResponse.access_token;
-        showBanner('success-banner');
-      } else {
-        showBanner('error-banner');
-      }
-    },
-  });
+  document.getElementById('login-btn').onclick = getAccessToken;
 
-  document.getElementById("login-btn").addEventListener("click", () => {
-    tokenClient.requestAccessToken();
-  });
-
-  document.getElementById("upload-bitacora").addEventListener("click", () => handleUpload("Bitacora"));
-  document.getElementById("upload-desmalezado").addEventListener("click", () => handleUpload("Desmalezado"));
-  document.getElementById("upload-relevamiento").addEventListener("click", () => handleUpload("Relevamiento"));
+  setupUploader('file-bitacora', 'btn-bitacora', 'Bitacora');
+  setupUploader('file-desmalezado', 'btn-desmalezado', 'Desmalezado');
+  setupUploader('file-relevamiento', 'btn-relevamiento', 'Relevamiento');
 };
 
-function handleUpload(tipo) {
-  const input = document.getElementById(`file-${tipo.toLowerCase()}`);
-  const file = input.files[0];
-  if (!file) { alert("Selecciona un archivo."); return; }
-  if (!accessToken) { alert("Primero inicia sesión."); return; }
+function getAccessToken() {
+  if (!tokenClient) {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: (tokenResponse) => {
+        accessToken = tokenResponse.access_token;
+        alert("Sesión iniciada correctamente");
+      },
+    });
+  }
+  tokenClient.requestAccessToken();
+}
+
+function setupUploader(inputId, buttonId, tipo) {
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(buttonId);
+
+  input.addEventListener('change', () => {
+    btn.classList.remove('hidden');
+  });
+
+  btn.addEventListener('click', () => {
+    uploadFile(input.files[0], tipo);
+  });
+}
+
+function showSuccessBanner() {
+  const banner = document.getElementById('success-banner');
+  banner.style.display = 'block';
+  setTimeout(() => { banner.style.display = 'none'; }, 3000);
+}
+
+function uploadFile(file, tipo) {
+  if (!file || !accessToken) {
+    alert("Primero inicia sesión y selecciona un archivo.");
+    return;
+  }
 
   const metadata = {
     name: `${tipo}_${file.name}`,
@@ -159,7 +148,7 @@ function handleUpload(tipo) {
   };
 
   const form = new FormData();
-  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+  form.append("metadata", new Blob([JSON.stringify(metadata)], {type: "application/json"}));
   form.append("file", file);
 
   fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
@@ -168,8 +157,8 @@ function handleUpload(tipo) {
     body: form
   })
   .then(r => r.json())
-  .then(() => showBanner('success-banner'))
-  .catch(() => showBanner('error-banner'));
+  .then(() => showSuccessBanner())
+  .catch(err => console.error(err));
 }
 </script>
 </body>
