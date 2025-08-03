@@ -5,76 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Subir archivos a Drive</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 0; padding: 0;
-    background: #f0f2f5; color: #333;
-  }
-  header {
-    background: #2e7d32; color: white;
-    text-align: center; padding: 15px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    position: relative;
-  }
-  header .home-btn {
-    position: absolute;
-    top: 15px; right: 20px;
-    background: white;
-    color: #2e7d32;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 12px;
-    font-size: 0.9em;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.3s;
-  }
-  header .home-btn:hover {
-    background: #e8f5e9;
-  }
+  body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f0f2f5; color: #333; }
+  header { background: #2e7d32; color: white; text-align: center; padding: 15px; position: relative; }
   h1 { margin: 0; font-size: 1.5em; }
-  section {
-    max-width: 600px; margin: 30px auto;
-    background: white; padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    text-align: center;
-  }
-  button {
-    margin: 10px;
-    padding: 10px 20px;
-    background: #1b5e20; color: white;
-    border: none; border-radius: 6px;
-    font-size: 1em; cursor: pointer;
-    transition: background 0.3s;
-  }
+  section { max-width: 600px; margin: 30px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+  button { margin: 10px; padding: 10px 20px; background: #1b5e20; color: white; border: none; border-radius: 6px; font-size: 1em; cursor: pointer; transition: background 0.3s; }
   button:hover { background: #388e3c; }
   input[type=file] { margin: 15px 0; }
-  #success-banner {
-    display: none;
-    position: fixed;
-    top: 20px; left: 50%;
-    transform: translateX(-50%);
-    background: #4CAF50;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 6px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    font-size: 1.1em;
-    z-index: 9999;
-  }
+  #success-banner { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #4CAF50; color: white; padding: 12px 20px; border-radius: 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); font-size: 1.1em; z-index: 9999; }
 </style>
 </head>
 <body>
 <div id="success-banner">Archivo subido exitosamente</div>
 
 <header>
-  <button class="home-btn" onclick="window.location.href='index.html'">Volver</button>
   <h1>Subida de Archivos a Drive</h1>
 </header>
 
 <section>
-  <button onclick="authenticate()">Iniciar sesión con Google</button>
+  <button onclick="initLogin()">Iniciar sesión con Google</button>
 
   <div>
     <h3>Bitácora</h3>
@@ -95,7 +44,7 @@
   </div>
 </section>
 
-<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
@@ -107,46 +56,44 @@ const FOLDER_IDS = {
 };
 
 let selectedFiles = { Bitacora: null, Desmalezado: null, Relevamiento: null };
-
-function gapiLoaded() {
-  gapi.load("client:auth2", initializeGapiClient);
-}
-
-async function initializeGapiClient() {
-  await gapi.client.init({
-    clientId: CLIENT_ID,
-    scope: SCOPES
-  });
-}
-
-function authenticate() {
-  gapi.auth2.getAuthInstance().signIn().then(() => {
-    alert("Sesión iniciada correctamente");
-  });
-}
+let accessToken = null;
+let tokenClient = null;
 
 function showSuccessBanner() {
   const banner = document.getElementById('success-banner');
   banner.style.display = 'block';
-  setTimeout(() => { banner.style.display = 'none'; }, 3000);
+  setTimeout(() => banner.style.display = 'none', 3000);
 }
 
-async function uploadFile(tipo) {
+function initLogin() {
+  if (!tokenClient) {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: (resp) => {
+        if (resp.error) {
+          console.error(resp);
+          return;
+        }
+        accessToken = resp.access_token;
+        alert("Sesión iniciada correctamente");
+      }
+    });
+  }
+  // Esto pide token (si no lo tiene) o lo renueva
+  tokenClient.requestAccessToken();
+}
+
+function handleUpload(tipo) {
+  if (!accessToken) {
+    alert("Primero inicia sesión");
+    return;
+  }
   const file = selectedFiles[tipo];
   if (!file) {
-    alert("Selecciona un archivo primero.");
+    alert("Selecciona un archivo.");
     return;
   }
-
-  const user = gapi.auth2.getAuthInstance().currentUser.get();
-  if (!user.isSignedIn()) {
-    alert("Primero debes iniciar sesión.");
-    return;
-  }
-
-  // Renueva el token antes de cada subida
-  const authResponse = await user.reloadAuthResponse();
-  const token = authResponse.access_token;
 
   const metadata = {
     name: `${tipo}_${file.name}`,
@@ -160,16 +107,12 @@ async function uploadFile(tipo) {
 
   fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
     method: "POST",
-    headers: new Headers({ "Authorization": "Bearer " + token }),
+    headers: new Headers({ "Authorization": "Bearer " + accessToken }),
     body: form
   })
   .then(r => r.json())
   .then(() => { showSuccessBanner(); })
   .catch(err => console.error(err));
-}
-
-function handleUpload(tipo) {
-  uploadFile(tipo);
 }
 
 window.onload = () => {
@@ -178,14 +121,7 @@ window.onload = () => {
   document.getElementById('upload-relevamiento').addEventListener('change', e => selectedFiles.Relevamiento = e.target.files[0]);
 };
 </script>
-
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 </body>
 </html>
 
-
-
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-</body>
-</html>
 
