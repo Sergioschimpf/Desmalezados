@@ -1,64 +1,45 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Prueba Subida Drive</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subir a Drive</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-<h2>Subida de archivo a Google Drive</h2>
-
-<div id="loginDiv"></div>
-<p id="output"></p>
-
+<h2>Prueba Subida a Google Drive</h2>
 <input type="file" id="fileInput">
-<button id="uploadBtn">Subir archivo</button>
+<button id="uploadBtn">Subir</button>
+<pre id="output"></pre>
 
 <script>
 const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
-const FOLDER_ID = "1K4Zz8YQhkxbtqtLm_kbUQe_I75HXslYC"; // tu carpeta Bitacora
+const API_KEY = "";
+const SCOPES = "https://www.googleapis.com/auth/drive";
+const FOLDER_ID = "1K4Zz8YQhkxbtqtLm_kbUQe_I75HXslYC";
+
 let accessToken = null;
 
-// Botón de login con nueva librería
-window.onload = () => {
-  google.accounts.id.initialize({
+function initGoogleIdentity() {
+  google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
+    scope: SCOPES,
     callback: (response) => {
-      // Intercambiar el token para usarlo directamente en fetch
-      fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + response.credential)
-        .then(r => r.json())
-        .then(info => {
-          document.getElementById("output").innerText = "Conectado como: " + info.email;
-        });
+      accessToken = response.access_token;
+      document.getElementById('output').textContent = "Login exitoso. Token recibido.";
+    },
+  }).requestAccessToken();
+}
 
-      // Usar el token para obtener uno de acceso
-      google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: "https://www.googleapis.com/auth/drive.file",
-        callback: (resp) => {
-          accessToken = resp.access_token;
-          document.getElementById("output").innerText = "Listo para subir archivos";
-        }
-      }).requestAccessToken();
-    }
-  });
-
-  google.accounts.id.renderButton(
-    document.getElementById("loginDiv"),
-    { theme: "outline", size: "large" }
-  );
-};
-
-// Subir archivo seleccionado
-document.getElementById("uploadBtn").onclick = () => {
-  const file = document.getElementById("fileInput").files[0];
-  if (!file) {
-    alert("Selecciona un archivo primero");
+document.getElementById("uploadBtn").addEventListener("click", () => {
+  if (!accessToken) {
+    initGoogleIdentity();
     return;
   }
-  if (!accessToken) {
-    alert("Primero inicia sesión");
+
+  const file = document.getElementById("fileInput").files[0];
+  if (!file) {
+    alert("Selecciona un archivo");
     return;
   }
 
@@ -73,20 +54,22 @@ document.getElementById("uploadBtn").onclick = () => {
 
   fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
     method: "POST",
-    headers: new Headers({ Authorization: "Bearer " + accessToken }),
-    body: form
+    headers: new Headers({ "Authorization": "Bearer " + accessToken }),
+    body: form,
   })
   .then(res => res.json())
   .then(data => {
-    document.getElementById("output").innerText = "Archivo subido: " + JSON.stringify(data, null, 2);
+    document.getElementById("output").textContent = "Respuesta:\n" + JSON.stringify(data, null, 2);
   })
   .catch(err => {
-    document.getElementById("output").innerText = "Error al subir: " + err;
+    document.getElementById("output").textContent = "Error:\n" + err;
   });
-};
+});
 </script>
 </body>
 </html>
+
+
 
 
 
