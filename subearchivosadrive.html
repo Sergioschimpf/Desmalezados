@@ -1,177 +1,167 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Subir a Google Drive</title>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<style>
-  body {
-    margin: 0;
-    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-    background: #f0f2f5;
-    color: #333;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Subir archivos a la nube</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: #f0f2f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 15px;
+    }
 
-  header {
-    background: #2e7d32;
-    color: white;
-    padding: 20px;
-    text-align: center;
-    font-size: 1.5em;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-  }
+    h2 {
+      color: #2e7d32;
+      margin-bottom: 10px;
+    }
 
-  main {
-    max-width: 500px;
-    margin: 40px auto;
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-  }
+    .container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
 
-  label {
-    font-weight: bold;
-    display: block;
-    margin-top: 15px;
-    margin-bottom: 5px;
-  }
+    input[type="file"], select, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      margin-bottom: 10px;
+      font-size: 1em;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
 
-  select, input[type=file], button {
-    width: 100%;
-    margin: 10px 0;
-    padding: 12px;
-    font-size: 16px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    box-sizing: border-box;
-  }
+    button {
+      background: #2e7d32;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
 
-  button {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.3s;
-  }
+    button:hover {
+      background: #1b5e20;
+    }
 
-  button:hover {
-    background: #45a049;
-  }
+    .message {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: bold;
+      display: none;
+    }
 
-  #messageBox {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: white;
-    border: 2px solid #4CAF50;
-    padding: 20px 25px;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.25);
-    display: none;
-    z-index: 9999;
-    max-width: 80%;
-    font-size: 18px;
-    border-radius: 12px;
-    text-align: center;
-  }
-</style>
+    .message.success {
+      background: #c8e6c9;
+      color: #2e7d32;
+    }
+
+    .message.error {
+      background: #ffcdd2;
+      color: #c62828;
+    }
+
+    @media (max-width: 500px) {
+      .container {
+        padding: 20px;
+      }
+    }
+  </style>
 </head>
 <body>
-<header>Subir archivos a la nube</header>
+  <div class="container">
+    <h2>Subir archivo a Drive</h2>
 
-<main>
-  <label for="folderSelect">Carpeta destino</label>
-  <select id="folderSelect">
-    <option value="1K4Zz8YQhkxbtqtLm_kbUQe_I75HXslYC">Desmalezado</option>
-  </select>
+    <select id="folderSelect">
+      <option value="1uDnC7krR2eUpaG4y6AzmIgfvJk6jOVJR">📂 Relevamientos</option>
+      <option value="1K4Zz8YQhkxbtqtLm_kbUQe_I75HXslYC">📂 Bitácora de Recorridos</option>
+      <option value="1Fq42JQThD2knm-2mrxtArCGY96KYQz59">📂 Desmalezado</option>
+    </select>
 
-  <label for="fileInput">Selecciona archivos</label>
-  <input type="file" id="fileInput" multiple>
+    <input type="file" id="fileInput">
+    <button id="uploadBtn">Subir</button>
 
-  <button id="uploadBtn">Subir</button>
-</main>
+    <div id="message" class="message"></div>
+  </div>
 
-<div id="messageBox"></div>
+  <script>
+    const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
+    const SCOPES = "https://www.googleapis.com/auth/drive.file";
+    let accessToken = null;
 
-<script>
-const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
-const SCOPES = "https://www.googleapis.com/auth/drive.file";
-let accessToken = null;
-let tokenClient = null;
+    const messageDiv = document.getElementById("message");
 
-function showMessage(text, color="#4CAF50") {
-  const box = document.getElementById("messageBox");
-  box.textContent = text;
-  box.style.borderColor = color;
-  box.style.display = "block";
-  setTimeout(() => { box.style.display = "none"; }, 4000);
-}
-
-window.onload = () => {
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: (response) => {
-      accessToken = response.access_token;
-      showMessage("Login exitoso, vuelve a presionar Subir");
-    },
-  });
-};
-
-async function subirArchivo(file, folderId) {
-  const metadata = {
-    name: file.name,
-    parents: [folderId]
-  };
-
-  const form = new FormData();
-  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
-  form.append("file", file);
-
-  const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-    method: "POST",
-    headers: new Headers({ "Authorization": "Bearer " + accessToken }),
-    body: form,
-  });
-  return res.json();
-}
-
-document.getElementById("uploadBtn").addEventListener("click", async () => {
-  if (!accessToken) {
-    tokenClient.requestAccessToken();
-    return;
-  }
-
-  const files = document.getElementById("fileInput").files;
-  if (!files.length) {
-    showMessage("Selecciona al menos un archivo", "red");
-    return;
-  }
-
-  const FOLDER_ID = document.getElementById("folderSelect").value;
-
-  for (const file of files) {
-    showMessage("Subiendo: " + file.name);
-    try {
-      const data = await subirArchivo(file, FOLDER_ID);
-      if (data.id) {
-        showMessage("Archivo subido: " + file.name);
-      } else {
-        showMessage("Error al subir " + file.name, "red");
-      }
-    } catch (err) {
-      showMessage("Error al subir " + file.name + ": " + err, "red");
+    function showMessage(text, type = "success") {
+      messageDiv.textContent = text;
+      messageDiv.className = `message ${type}`;
+      messageDiv.style.display = "block";
     }
-  }
 
-  // limpiar input
-  document.getElementById("fileInput").value = "";
-});
-</script>
+    function initGoogleIdentity() {
+      google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: (response) => {
+          accessToken = response.access_token;
+          showMessage("✅ Login exitoso", "success");
+        },
+      }).requestAccessToken();
+    }
+
+    document.getElementById("uploadBtn").addEventListener("click", () => {
+      if (!accessToken) {
+        initGoogleIdentity();
+        return;
+      }
+
+      const file = document.getElementById("fileInput").files[0];
+      const folderId = document.getElementById("folderSelect").value;
+
+      if (!file) {
+        showMessage("⚠️ Selecciona un archivo primero", "error");
+        return;
+      }
+
+      const metadata = {
+        name: file.name,
+        parents: [folderId]
+      };
+
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+      form.append("file", file);
+
+      fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+        method: "POST",
+        headers: new Headers({ "Authorization": "Bearer " + accessToken }),
+        body: form,
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          showMessage("❌ Error al subir: " + data.error.message, "error");
+        } else {
+          showMessage("✅ Archivo subido correctamente: " + data.name, "success");
+        }
+      })
+      .catch(err => {
+        showMessage("❌ Error de red: " + err.message, "error");
+      });
+    });
+  </script>
 </body>
+</html>
+
 </html>
 
 
