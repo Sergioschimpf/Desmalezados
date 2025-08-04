@@ -3,37 +3,78 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Subir a Drive</title>
+<title>Subir archivo a Google Drive</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0; padding: 0;
+    background: #f7f7f7;
+    display: flex; flex-direction: column;
+    height: 100vh; justify-content: center; align-items: center;
+  }
+  h2 { margin-bottom: 20px; }
+  #container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  #output {
+    margin-top: 20px;
+    white-space: pre-wrap;
+    background: #eee;
+    padding: 10px;
+    border-radius: 5px;
+    max-width: 90vw;
+    word-wrap: break-word;
+  }
+  input, button {
+    margin: 10px 0;
+    padding: 10px;
+    font-size: 16px;
+  }
+  button {
+    background-color: #4285f4;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  button:hover { background-color: #3367d6; }
+</style>
 </head>
 <body>
-<h2>Prueba Subida a Google Drive</h2>
-<input type="file" id="fileInput">
-<button id="uploadBtn">Subir</button>
-<pre id="output"></pre>
+  <div id="container">
+    <h2>Subir archivo a Google Drive</h2>
+    <input type="file" id="fileInput">
+    <br>
+    <button id="uploadBtn">Subir</button>
+    <pre id="output"></pre>
+  </div>
 
 <script>
 const CLIENT_ID = "97793571405-f6ggo2qia339e71k8gg79s54pot0u5t5.apps.googleusercontent.com";
-const API_KEY = "";
-const SCOPES = "https://www.googleapis.com/auth/drive";
-const FOLDER_ID = "1K4Zz8YQhkxbtqtLm_kbUQe_I75HXslYC";
-
+const SCOPES = "https://www.googleapis.com/auth/drive.file";
+const FOLDER_ID = "1K4Zz8YQhkxbtqtLm_kbUQe_I75HXslYC"; // Carpeta compartida
 let accessToken = null;
 
-function initGoogleIdentity() {
-  google.accounts.oauth2.initTokenClient({
+function pedirToken() {
+  const client = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
     callback: (response) => {
       accessToken = response.access_token;
-      document.getElementById('output').textContent = "Login exitoso. Token recibido.";
+      document.getElementById('output').textContent = "Login exitoso, ahora presiona Subir de nuevo.";
     },
-  }).requestAccessToken();
+  });
+  client.requestAccessToken();
 }
 
 document.getElementById("uploadBtn").addEventListener("click", () => {
   if (!accessToken) {
-    initGoogleIdentity();
+    pedirToken();
     return;
   }
 
@@ -43,11 +84,9 @@ document.getElementById("uploadBtn").addEventListener("click", () => {
     return;
   }
 
-  const metadata = {
-    name: file.name,
-    parents: [FOLDER_ID]
-  };
+  document.getElementById('output').textContent = "Subiendo archivo...";
 
+  const metadata = { name: file.name, parents: [FOLDER_ID] };
   const form = new FormData();
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
   form.append("file", file);
@@ -59,7 +98,7 @@ document.getElementById("uploadBtn").addEventListener("click", () => {
   })
   .then(res => res.json())
   .then(data => {
-    document.getElementById("output").textContent = "Respuesta:\n" + JSON.stringify(data, null, 2);
+    document.getElementById("output").textContent = "Archivo subido con éxito:\n" + JSON.stringify(data, null, 2);
   })
   .catch(err => {
     document.getElementById("output").textContent = "Error:\n" + err;
@@ -68,6 +107,8 @@ document.getElementById("uploadBtn").addEventListener("click", () => {
 </script>
 </body>
 </html>
+
+
 
 
 
